@@ -28,17 +28,17 @@ class GlobalConfig:
         if self.auth_type in (AuthType.NONE, AuthType.READ_ONLY):
             return None
         elif self.auth_type in (AuthType.PASSWORD, AuthType.TOTP):
-            from auth.local import LocalAuth
+            from flatnotes.auth.local import LocalAuth
 
             return LocalAuth()
 
     def load_note_storage(self):
-        from notes.file_system import FileSystemNotes
+        from flatnotes.notes.file_system import FileSystemNotes
 
         return FileSystemNotes()
 
     def load_attachment_storage(self):
-        from attachments.file_system import FileSystemAttachments
+        from flatnotes.attachments.file_system import FileSystemAttachments
 
         return FileSystemAttachments()
 
