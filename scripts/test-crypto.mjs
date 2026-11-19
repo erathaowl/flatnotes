@@ -46,7 +46,7 @@ await visitor.close();
 
 const reader = session();
 const decrypted = await reader.call("unlock", { noteId: id, password, ciphertext });
-assert.deepEqual(decrypted, { title, content });
+assert.deepEqual(decrypted, { title, content, attachments: [] });
 
 const attached = [{ id: "ab12", name: "report.pdf", dataUrl: "data:application/pdf;base64,SGVsbG8=" }];
 const updated = await reader.call("save", { title, content: "Updated private text", attachments: attached });
