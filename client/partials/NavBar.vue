@@ -8,6 +8,9 @@
       <RouterLink v-if="showNewButton" :to="{ name: 'new' }">
         <CustomButton :iconPath="mdilPlusCircle" label="New Note" />
       </RouterLink>
+      <RouterLink v-if="showNewButton && globalStore.config.encryptionEnabled" :to="{ name: 'encryptedNote', params: { id: 'new' } }">
+        <CustomButton label="New Protected" />
+      </RouterLink>
       <!-- Menu -->
       <CustomButton
         class="ml-1"
@@ -56,6 +59,11 @@ const menuItems = [
     icon: mdilMagnify,
     command: () => emit("toggleSearchModal"),
     keyboardShortcut: "/",
+  },
+  {
+    label: "Protected Notes",
+    icon: mdilNoteMultiple,
+    command: () => router.push({ name: "encryptedNotes" }),
   },
   {
     label: "All Notes",

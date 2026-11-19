@@ -83,6 +83,46 @@ Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono p
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
+## Note protette con cifratura nel browser
+
+Imposta `FLATNOTES_ENCRYPTION_ENABLED=true` per abilitare il pulsante
+**Protect** e la creazione di note cifrate. L'app usa **Argon2id** per
+derivare una chiave dalla password e **AES-256-GCM** per cifrare una
+chiave casuale per nota e i suoi contenuti. Tutte le operazioni crittografiche
+si svolgono in un Web Worker nel browser. Le API delle note cifrate
+ricevono esclusivamente dati cifrati.
+
+La struttura degli indirizzi è:
+
+- `/n/{titolo}`: nota normale in Markdown, con autenticazione ordinaria.
+- `/p/{slug}`: nota pubblicata, eventualmente cifrata.
+- `/e/{id}`: nota cifrata identificata da un codice casuale.
+
+I file cifrati sono salvati come `/data/{id}.md.enc`. Titoli e tag
+rimangono dentro il contenuto cifrato; il server non li indicizza.
+La password viene chiesta in una finestra nel browser e **non compare
+mai nell'URL**. Se perdi la password, non è possibile recuperare il contenuto.
+
+Le immagini possono essere incorporate nella nota in forma di data URL,
+poi cifrate insieme al testo. Prima di proteggere una nota esistente,
+occorre rimuovere o incorporare eventuali allegati esterni non cifrati.
+Puoi esportare una nota protetta come file Markdown direttamente dal
+browser. La rimozione automatica della protezione non è prevista perché
+richiederebbe la trasmissione del testo in chiaro al server.
+
+Con `FLATNOTES_SHARING_ENABLED=false` disabiliti condivisioni e API
+pubbliche senza cancellare i metadati di pubblicazione. La condivisione
+è abilitata per impostazione predefinita, mentre la cifratura è disabilitata.
+Le note già cifrate restano leggibili anche se la cifratura è disabilitata.
+
+Per garantire il modello di sicurezza, usa HTTPS, password robuste e un
+browser aggiornato. Una nota prima salvata in chiaro può lasciare copie
+storiche in backup, snapshot e blocchi degli indici di ricerca.
+Il browser esegue codice JavaScript fornito dal server: un server
+compromesso potrebbe distribuire codice client dannoso.
+
+Approfondimenti: [Encrypted Notes](wiki/Encrypted-Notes.md).
+
 ## Pubblicazione delle note
 
 Apri una nota già salvata e premi **Share**. Le note sono inizialmente private. Puoi scegliere l'accesso pubblico in **sola lettura** o abilitare **la modifica da parte di chi possiede il collegamento**.

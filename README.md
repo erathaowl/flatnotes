@@ -91,6 +91,50 @@ Open `http://localhost:8080`. Data and publication settings persist in the `./da
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
+## Protected notes (browser-only encryption)
+
+Set `FLATNOTES_ENCRYPTION_ENABLED=true` to enable the **Protect** action for
+normal notes and creation of protected notes. Protection uses **Argon2id**
+(64 MiB, three iterations, one lane) to derive a wrapping key from your
+password and **AES-256-GCM** to encrypt a random per-note data key and
+the note content. Cryptographic operations execute in a browser Web Worker.
+Passwords and decrypted note content are never sent to the server by
+protected-note APIs.
+
+The supported URL scheme is:
+
+- `/n/{title}`: normal Markdown note, subject to the usual login.
+- `/p/{slug}`: published note, optionally encrypted and unlocked in-browser.
+- `/e/{id}`: protected note, addressed by a random opaque identifier.
+
+Protected files are stored as `/data/{id}.md.enc` and do not enter
+the server-side search index. Their titles and tags are encrypted, so the
+protected notes list shows opaque identifiers until the browser unlocks them.
+Passwords are entered only in a browser form, **never in URL query strings
+or fragments**. Losing a password means losing the ability to decrypt its note.
+
+Protected images can be embedded directly into encrypted Markdown as data
+URLs. Existing plaintext attachments must be removed or embedded before a
+note can be protected. A protected note can be exported as Markdown directly
+from the browser. Converting that export into an ordinary server-stored Markdown
+note would necessarily transmit plaintext, so automatic unprotection is
+intentionally unsupported.
+
+Set `FLATNOTES_SHARING_ENABLED=false` to disable publication controls
+and all public publication APIs while retaining publication metadata.
+This flag defaults to `true`. Encryption defaults to `false`; existing
+encrypted notes remain readable even when new encryption is disabled.
+
+**Security considerations:** Use HTTPS, a trusted instance, strong unique
+passphrases, and a current browser. Protecting an existing plaintext note
+cannot erase historical plaintext backups, filesystem snapshots, or old
+search index blocks. The server delivers the JavaScript used for encryption;
+a compromised server able to replace that JavaScript could compromise the
+browser's security boundary.
+
+Read the [Encrypted Notes](wiki/Encrypted-Notes.md) guide for the file
+format, threat model, permissions, and backup details.
+
 ## Publish a note
 
 Open an existing note and click **Share**. Notes are private by default; choose **Public: read-only** or **Public: anyone with the link can edit**. Select a URL identifier:

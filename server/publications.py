@@ -130,6 +130,11 @@ class PublicationStore:
                     "Invalid slug. Use 1-80 lowercase letters, digits or hyphens."
                 )
 
+            if db.execute(
+                "SELECT 1 FROM encrypted_publications WHERE slug = ? COLLATE NOCASE",
+                (slug,),
+            ).fetchone():
+                raise SlugConflictError("Public URL is already in use.")
             try:
                 if current:
                     db.execute(

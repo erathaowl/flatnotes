@@ -38,7 +38,17 @@
     "
   />
 
-  <ShareModal v-model="isShareModalVisible" :title="note.title" />
+  <ShareModal
+    v-if="globalStore.config.sharingEnabled"
+    v-model="isShareModalVisible"
+    :title="note.title"
+  />
+  <ProtectModal
+    v-if="globalStore.config.encryptionEnabled"
+    v-model="isProtectModalVisible"
+    :title="note.title"
+    :content="note.content"
+  />
 
   <LoadingIndicator ref="loadingIndicator" class="flex h-full flex-col">
     <!-- Header -->
@@ -57,9 +67,14 @@
       <!-- Buttons -->
       <div class="flex shrink-0 self-end md:self-baseline print:hidden">
         <CustomButton
-          v-if="canModify && !isNewNote"
+          v-if="canModify && !isNewNote && globalStore.config.sharingEnabled"
           label="Share"
           @click="isShareModalVisible = true"
+        />
+        <CustomButton
+          v-if="canModify && !isNewNote && !editMode && globalStore.config.encryptionEnabled"
+          label="Protect"
+          @click="isProtectModalVisible = true"
         />
         <!-- Delete Button -->
         <CustomButton
@@ -146,6 +161,7 @@ import ConfirmModal from "../components/ConfirmModal.vue";
 import CustomButton from "../components/CustomButton.vue";
 import LoadingIndicator from "../components/LoadingIndicator.vue";
 import ShareModal from "../components/ShareModal.vue";
+import ProtectModal from "../components/ProtectModal.vue";
 import Toggle from "../components/Toggle.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
@@ -167,6 +183,7 @@ const globalStore = useGlobalStore();
 const isSaveChangesModalVisible = ref(false);
 const isDeleteModalVisible = ref(false);
 const isShareModalVisible = ref(false);
+const isProtectModalVisible = ref(false);
 const isDraftModalVisible = ref(false);
 const isNewNote = computed(() => !props.title);
 const loadingIndicator = ref();

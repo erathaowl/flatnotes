@@ -17,6 +17,8 @@ The project also ships an installable Python wheel with the complete web
 interface. See [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)
 for wheel installation, Docker and deployment information.
 
+- [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes) — browser-only Argon2id/AES-GCM encryption, `.md.enc` storage, and encrypted sharing.
+
 ## FAQ
 
 ### Where are my notes stored?

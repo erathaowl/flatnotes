@@ -17,6 +17,7 @@ from flatnotes.helpers import replace_base_href
 from flatnotes.notes.base import BaseNotes
 from flatnotes.notes.models import Note, NoteCreate, NoteUpdate, SearchResult
 from flatnotes.publications import PublicationStore, SlugConflictError, content_revision
+from flatnotes.helpers import is_valid_filename
 from flatnotes.publication_models import PublicationSettings, PublicationInfo, PublicNote, PublicNoteUpdate
 
 global_config = GlobalConfig()
@@ -49,7 +50,7 @@ def root(request: Request, title: str = ""):
         headers = {
             "Content-Security-Policy": (
                 "default-src 'self' data:; "
-                "script-src 'self'; "
+                "script-src 'self' 'wasm-unsafe-eval'; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: https:; "
                 "connect-src 'self'; object-src 'none'; "
@@ -297,6 +298,152 @@ def get_public_attachment(slug: str, filename: str):
     if extension not in {"png", "jpg", "jpeg", "gif", "webp"}:
         result.headers["Content-Disposition"] = "attachment"
     return result
+
+
+# endregion
+
+
+
+# region Encrypted notes
+def encrypted_response(note_id: str, ciphertext: bytes, permission: str = ""):
+    result = Response(content=ciphertext, media_type="application/octet-stream")
+    result.headers["Cache-Control"] = "no-store"
+    result.headers["X-Content-Type-Options"] = "nosniff"
+    result.headers["X-Revision"] = encrypted_store.revision(note_id)
+    result.headers["X-Note-Id"] = note_id
+    if permission:
+        result.headers["X-Edit-Permission"] = permission
+    return result
+
+
+@router.get("/api/encrypted-notes", dependencies=auth_deps)
+def list_encrypted_notes():
+    return encrypted_store.list()
+
+
+@router.get("/api/encrypted-notes/{note_id}", dependencies=auth_deps)
+def get_encrypted_note(note_id: str):
+    try:
+        data = encrypted_store.read(note_id)
+        return encrypted_response(note_id, data)
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Encrypted note not found")
+
+
+@router.put("/api/encrypted-notes/{note_id}", dependencies=auth_deps)
+async def put_encrypted_note(note_id: str, request: Request, x_revision: str = Header(None)):
+    if not global_config.encryption_enabled or global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(403, "Encrypted note writes are disabled")
+    data = await request.body()
+    try:
+        with publication_store.connection(write=True):
+            revision = encrypted_store.save(note_id, data, x_revision)
+        return {"id": note_id, "revision": revision}
+    except (FileExistsError, FileNotFoundError):
+        raise HTTPException(409, "Encrypted note changed or exists")
+    except ValueError as error:
+        raise HTTPException(422, str(error))
+
+
+@router.post("/api/encrypted-notes/protect/{title}/{note_id}", dependencies=auth_deps)
+async def protect_existing_note(title: str, note_id: str, request: Request):
+    if not global_config.encryption_enabled or global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(403, "Encryption is disabled")
+    data = await request.body()
+    try:
+        is_valid_filename(title)
+        with publication_store.connection(write=True) as db:
+            # Check only the source file's existence. Do not read its content.
+            from pathlib import Path
+            if not Path(note_storage._path_from_title(title)).is_file():
+                raise HTTPException(404, "Note not found")
+            revision = encrypted_store.save(note_id, data, "*")
+            Path(note_storage._path_from_title(title)).unlink()
+            publication_store.remove(title, db)
+        note_storage._sync_index_with_retry()
+        return {"id": note_id, "revision": revision}
+    except FileExistsError:
+        raise HTTPException(409, "Encrypted note already exists")
+    except ValueError as error:
+        raise HTTPException(422, str(error))
+
+
+@router.delete("/api/encrypted-notes/{note_id}", dependencies=auth_deps, status_code=204)
+def delete_encrypted_note(note_id: str):
+    if global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(403, "Read-only mode")
+    try:
+        with publication_store.connection(write=True) as db:
+            encrypted_store.delete(note_id)
+            encrypted_publications.delete(note_id, db)
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Encrypted note not found")
+
+
+@router.get("/api/encrypted-notes/{note_id}/publication", dependencies=auth_deps, response_model=PublicationInfo | None)
+def get_encrypted_publication(note_id: str):
+    if not global_config.sharing_enabled:
+        raise HTTPException(404, "Sharing is disabled")
+    try:
+        encrypted_store.path(note_id).stat()
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Encrypted note not found")
+    return encrypted_publications.get(note_id=note_id)
+
+
+@router.put("/api/encrypted-notes/{note_id}/publication", dependencies=auth_deps, response_model=PublicationInfo)
+def set_encrypted_publication(note_id: str, settings: PublicationSettings):
+    if not global_config.sharing_enabled or global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(404, "Sharing is disabled")
+    try:
+        encrypted_store.path(note_id).stat()
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Encrypted note not found")
+    try:
+        return encrypted_publications.save(note_id, settings.slug_mode, settings.permission, settings.slug)
+    except SlugConflictError as error:
+        raise HTTPException(409, str(error))
+    except ValueError as error:
+        raise HTTPException(422, str(error))
+
+
+@router.delete("/api/encrypted-notes/{note_id}/publication", dependencies=auth_deps, status_code=204)
+def delete_encrypted_publication(note_id: str):
+    if not global_config.sharing_enabled or global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(404, "Sharing is disabled")
+    encrypted_publications.delete(note_id)
+
+
+@router.get("/api/public/encrypted-notes/{slug}")
+def read_public_encrypted_note(slug: str):
+    if not global_config.sharing_enabled:
+        raise HTTPException(404, "Sharing is disabled")
+    publication = encrypted_publications.get(slug=slug)
+    if not publication:
+        raise HTTPException(404, "Published note not found")
+    try:
+        data = encrypted_store.read(publication["note_id"])
+        return encrypted_response(publication["note_id"], data, publication["permission"])
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Published note not found")
+
+
+@router.put("/api/public/encrypted-notes/{slug}")
+async def write_public_encrypted_note(slug: str, request: Request, x_revision: str = Header(None)):
+    if not global_config.sharing_enabled or not global_config.encryption_enabled:
+        raise HTTPException(404, "Sharing or encryption is disabled")
+    data = await request.body()
+    try:
+        with publication_store.connection(write=True) as db:
+            publication = encrypted_publications.get(slug=slug, db=db)
+            if not publication:
+                raise HTTPException(404, "Published note not found")
+            if publication["permission"] != "edit":
+                raise HTTPException(403, "Public editing is disabled")
+            revision = encrypted_store.save(publication["note_id"], data, x_revision)
+            return {"revision": revision}
+    except (ValueError, FileNotFoundError, FileExistsError):
+        raise HTTPException(409, "Note revision mismatch")
 
 
 # endregion

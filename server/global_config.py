@@ -10,6 +10,8 @@ class GlobalConfig:
     def __init__(self) -> None:
         logger.debug("Loading global config...")
         self.auth_type: AuthType = self._load_auth_type()
+        self.encryption_enabled = get_env("FLATNOTES_ENCRYPTION_ENABLED", default=False, cast_bool=True)
+        self.sharing_enabled = get_env("FLATNOTES_SHARING_ENABLED", default=True, cast_bool=True)
         self.quick_access_hide: bool = self._quick_access_hide()
         self.quick_access_title: str = self._quick_access_title()
         self.quick_access_term: str = self._quick_access_term()
@@ -133,6 +135,8 @@ class AuthType(str, Enum):
 
 class GlobalConfigResponseModel(CustomBaseModel):
     auth_type: AuthType
+    encryption_enabled: bool = False
+    sharing_enabled: bool = True
     quick_access_hide: bool
     quick_access_title: str
     quick_access_term: str

@@ -184,3 +184,63 @@ export async function updatePublicNote(slug, content, revision) {
   });
   return response.data;
 }
+
+
+// Protected note transport carries opaque ciphertext. No password is sent.
+export async function listEncryptedNotes() {
+  const response = await api.get("api/encrypted-notes");
+  return response.data;
+}
+
+export async function fetchEncryptedNote(noteId, slug = null) {
+  const path = slug
+    ? "api/public/encrypted-notes/" + encodeURIComponent(slug)
+    : "api/encrypted-notes/" + encodeURIComponent(noteId);
+  const response = await api.get(path, { responseType: "text" });
+  return {
+    ciphertext: response.data,
+    noteId: response.headers["x-note-id"] || noteId,
+    revision: response.headers["x-revision"],
+    permission: response.headers["x-edit-permission"] || "edit",
+  };
+}
+
+export async function saveEncryptedNote(noteId, ciphertext, revision, slug = null) {
+  const path = slug
+    ? "api/public/encrypted-notes/" + encodeURIComponent(slug)
+    : "api/encrypted-notes/" + encodeURIComponent(noteId);
+  const response = await api.put(path, ciphertext, {
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "X-Revision": revision,
+    },
+  });
+  return response.data;
+}
+
+export async function protectPlainNote(title, noteId, ciphertext) {
+  const response = await api.post(
+    "api/encrypted-notes/protect/" + encodeURIComponent(title) + "/" + noteId,
+    ciphertext,
+    { headers: { "Content-Type": "application/octet-stream" } },
+  );
+  return response.data;
+}
+
+export async function deleteEncryptedNote(noteId) {
+  await api.delete("api/encrypted-notes/" + encodeURIComponent(noteId));
+}
+
+export async function getEncryptedPublication(noteId) {
+  const response = await api.get("api/encrypted-notes/" + noteId + "/publication");
+  return response.data;
+}
+
+export async function saveEncryptedPublication(noteId, settings) {
+  const response = await api.put("api/encrypted-notes/" + noteId + "/publication", settings);
+  return response.data;
+}
+
+export async function removeEncryptedPublication(noteId) {
+  await api.delete("api/encrypted-notes/" + noteId + "/publication");
+}

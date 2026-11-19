@@ -22,7 +22,7 @@
         class="mb-4 w-full rounded border border-theme-border bg-theme-background px-2 py-2"
       >
         <option value="random">Random identifier (recommended)</option>
-        <option value="title">Use note title</option>
+        <option v-if="!encryptedId" value="title">Use note title</option>
         <option value="custom">Custom identifier</option>
       </select>
 
@@ -68,12 +68,15 @@
 <script setup>
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { getPublication, removePublication, savePublication } from "../api.js";
+import {
+  getPublication, removePublication, savePublication,
+  getEncryptedPublication, removeEncryptedPublication, saveEncryptedPublication,
+} from "../api.js";
 import CustomButton from "./CustomButton.vue";
 import Modal from "./Modal.vue";
 import TextInput from "./TextInput.vue";
 
-const props = defineProps({ title: String });
+const props = defineProps({ title: String, encryptedId: String });
 const isVisible = defineModel({ type: Boolean });
 const router = useRouter();
 const published = ref(null);
@@ -114,7 +117,9 @@ async function load() {
   busy.value = true;
   errorMessage.value = "";
   try {
-    published.value = await getPublication(props.title);
+    published.value = props.encryptedId
+      ? await getEncryptedPublication(props.encryptedId)
+      : await getPublication(props.title);
     access.value = published.value?.permission || "private";
     slugMode.value = published.value?.slugMode || "random";
     customSlug.value = published.value?.slugMode === "custom" ? published.value.slug : "";
@@ -130,11 +135,16 @@ async function save() {
   busy.value = true;
   errorMessage.value = "";
   try {
-    published.value = await savePublication(props.title, {
+    published.value = await (props.encryptedId
+      ? saveEncryptedPublication(props.encryptedId, {
+        slugMode: slugMode.value, slug: slugMode.value === "custom" ? customSlug.value : null,
+        permission: access.value,
+      })
+      : savePublication(props.title, {
       slugMode: slugMode.value,
       slug: slugMode.value === "custom" ? customSlug.value : null,
       permission: access.value,
-    });
+    }));
     isVisible.value = false;
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Failed to publish this note.";
@@ -148,7 +158,8 @@ async function unpublish() {
   busy.value = true;
   errorMessage.value = "";
   try {
-    await removePublication(props.title);
+    if (props.encryptedId) await removeEncryptedPublication(props.encryptedId);
+    else await removePublication(props.title);
     published.value = null;
     access.value = "private";
   } catch (error) {

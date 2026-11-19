@@ -24,6 +24,22 @@ persisted externally under `FLATNOTES_PATH`. The CLI supports
 `--forwarded-allow-ips` for trusted reverse proxies. A smoke test in GitHub
 Actions verifies the wheel installation and frontend files.
 
+## Optional browser encryption
+
+Add these variables to the Docker Compose service:
+
+```yaml
+environment:
+  FLATNOTES_ENCRYPTION_ENABLED: "true"
+  FLATNOTES_SHARING_ENABLED: "true"
+```
+
+Encrypted notes use `/data/{id}.md.enc` and are not indexed by Whoosh.
+Passwords never reach the encrypted-note APIs. The build includes a bundled
+Argon2id WebAssembly module for in-browser key derivation.
+
+See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes).
+
 ## Container image
 
 This fork publishes images in GitHub Container Registry:

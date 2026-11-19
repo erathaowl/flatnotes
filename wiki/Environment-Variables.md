@@ -61,6 +61,20 @@ At startup, flatnotes prints a QR code and a manual key. Scan the QR code using 
 
 **Important:** The container logs contain TOTP enrollment information. Restrict log access and preserve `FLATNOTES_TOTP_KEY` so enrolled authenticators remain valid. For direct API use, concatenate the current six-digit TOTP code to the password in the `/api/token` request.
 
+## Encryption and sharing feature switches
+
+| Variable | Default | Behavior |
+| --- | --- | --- |
+| `FLATNOTES_ENCRYPTION_ENABLED` | `false` | Enable creation and protection of notes. Already encrypted notes remain readable when disabled. |
+| `FLATNOTES_SHARING_ENABLED` | `true` | Enable the Share dialog and public endpoints. Disabling it suspends all public links without deleting their metadata. |
+
+Normal notes are stored as `.md` files. Protected notes use opaque
+filenames ending in `.md.enc`. Encryption keys, passwords, titles and
+protected content are handled by the browser. The server stores ciphertext
+and does not index encrypted notes.
+
+See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes).
+
 ## Quick access on the home page
 
 | Variable | Default | Description |

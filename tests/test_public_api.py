@@ -99,6 +99,96 @@ class PublicApiTests(unittest.TestCase):
             self.assertEqual(favicon.headers["content-type"], "image/png")
             self.assertEqual(favicon.content, icon.read_bytes())
 
+    def test_feature_flags_and_opaque_encrypted_routes(self):
+        from flatnotes import main
+
+        note_id = "a1b2" * 8
+        data = b'{"version":1,"wrappedKey":"ciphertext-only"}'
+        with (
+            patch.object(main.global_config, "encryption_enabled", False),
+            patch.object(main.global_config, "sharing_enabled", False),
+        ):
+            config = self.client.get("/api/config").json()
+            self.assertFalse(config["encryptionEnabled"])
+            self.assertFalse(config["sharingEnabled"])
+            self.assertEqual(self.client.get("/api/public/notes/not-found").status_code, 404)
+            self.assertEqual(
+                self.client.put(
+                    "/api/encrypted-notes/" + note_id,
+                    content=data,
+                    headers={**self.headers, "X-Revision": "*"},
+                ).status_code,
+                403,
+            )
+
+        with patch.object(main.global_config, "encryption_enabled", True):
+            created = self.client.put(
+                "/api/encrypted-notes/" + note_id,
+                content=data,
+                headers={**self.headers, "X-Revision": "*"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+            self.assertNotIn("password", created.text.lower())
+            self.assertTrue(Path("data/" + note_id + ".md.enc").is_file())
+            self.assertEqual(
+                self.client.get("/api/encrypted-notes/" + note_id).status_code,
+                401,
+            )
+            fetched = self.client.get(
+                "/api/encrypted-notes/" + note_id, headers=self.headers
+            )
+            self.assertEqual(fetched.content, data)
+            self.assertEqual(fetched.headers["x-revision"], created.json()["revision"])
+            self.assertEqual(fetched.headers["cache-control"], "no-store")
+            self.assertEqual(
+                self.client.put(
+                    "/api/encrypted-notes/" + note_id,
+                    content=b"modified",
+                    headers={**self.headers, "X-Revision": "old"},
+                ).status_code,
+                409,
+            )
+            self.assertEqual(
+                self.client.put(
+                    "/api/encrypted-notes/" + note_id + "/publication",
+                    json={"slugMode": "random", "permission": "read"},
+                    headers=self.headers,
+                ).status_code,
+                200,
+            )
+            publication = self.client.get(
+                "/api/encrypted-notes/" + note_id + "/publication",
+                headers=self.headers,
+            ).json()
+            slug = publication["slug"]
+            public = self.client.get("/api/public/encrypted-notes/" + slug)
+            self.assertEqual(public.content, data)
+            self.assertEqual(public.headers["x-edit-permission"], "read")
+            self.assertEqual(
+                self.client.put(
+                    "/api/public/encrypted-notes/" + slug,
+                    content=b"malicious",
+                    headers={"X-Revision": created.json()["revision"]},
+                ).status_code,
+                403,
+            )
+            with patch.object(main.global_config, "sharing_enabled", False):
+                self.assertEqual(
+                    self.client.get("/api/public/encrypted-notes/" + slug).status_code,
+                    404,
+                )
+
+        self.assertEqual(
+            self.client.delete(
+                "/api/encrypted-notes/" + note_id, headers=self.headers
+            ).status_code,
+            204,
+        )
+        self.assertEqual(
+            self.client.get("/api/public/encrypted-notes/" + slug).status_code,
+            404,
+        )
+
     def test_private_note_is_not_public(self):
         self.create_note("Private", "Private content")
         self.assertEqual(self.client.get("/api/notes/Private").status_code, 401)

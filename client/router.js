@@ -20,10 +20,25 @@ const router = createRouter({
       props: (route) => ({ redirect: route.query[constants.params.redirect] }),
     },
     {
-      path: "/note/:title",
+      path: "/n/:title",
       name: "note",
       component: () => import("./views/Note.vue"),
       props: true,
+    },
+    {
+      path: "/note/:title",
+      redirect: (to) => ({ name: "note", params: { title: to.params.title } }),
+    },
+    {
+      path: "/e/:id",
+      name: "encryptedNote",
+      component: () => import("./views/EncryptedNote.vue"),
+      props: true,
+    },
+    {
+      path: "/encrypted",
+      name: "encryptedNotes",
+      component: () => import("./views/EncryptedNotes.vue"),
     },
     {
       path: "/p/:slug",
@@ -74,6 +89,9 @@ export function updatePageTitle(to) {
   let title = useGlobalStore().config.siteTitle || "flatnotes";
   if (to.name === "publicNote") {
     title = "Shared Note - " + title;
+  }
+  if (to.name === "encryptedNote") {
+    title = "Protected Note - " + title;
   }
   if (to.name === "note") {
     if (to.params.title) {

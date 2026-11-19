@@ -3,6 +3,9 @@
     <div class="flex max-w-[500px] flex-1 flex-col items-center pt-[25vh]">
       <Logo class="mb-5" />
       <SearchInput class="mb-5 shadow-[0_0_20px] shadow-theme-shadow" />
+      <RouterLink :to="{ name: 'encryptedNotes' }" class="mb-5">
+        <CustomButton label="Protected Notes" />
+      </RouterLink>
       <LoadingIndicator
         ref="loadingIndicator"
         class="flex min-h-56 flex-col items-center"
