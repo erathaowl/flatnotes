@@ -3,7 +3,7 @@ from pathlib import Path
 from html import escape
 import mimetypes
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response, Request, Header
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -17,6 +17,7 @@ from flatnotes.helpers import replace_base_href
 from flatnotes.notes.base import BaseNotes
 from flatnotes.notes.models import Note, NoteCreate, NoteUpdate, SearchResult
 from flatnotes.publications import PublicationStore, SlugConflictError, content_revision
+from flatnotes.encrypted_storage import EncryptedNoteStore, EncryptedPublicationStore
 from flatnotes.helpers import is_valid_filename
 from flatnotes.publication_models import PublicationSettings, PublicationInfo, PublicNote, PublicNoteUpdate
 
@@ -25,6 +26,8 @@ auth: BaseAuth = global_config.load_auth()
 note_storage: BaseNotes = global_config.load_note_storage()
 attachment_storage: BaseAttachments = global_config.load_attachment_storage()
 publication_store = PublicationStore(note_storage.storage_path)
+encrypted_store = EncryptedNoteStore(note_storage.storage_path)
+encrypted_publications = EncryptedPublicationStore(publication_store)
 auth_deps = [Depends(auth.authenticate)] if auth else []
 router = APIRouter()
 app = FastAPI(
@@ -40,19 +43,28 @@ FRONTEND_DIR = Path(__file__).resolve().parent / "web" / "dist"
 @router.get("/search", include_in_schema=False)
 @router.get("/new", include_in_schema=False)
 @router.get("/note/{title}", include_in_schema=False)
+@router.get("/n/{title}", include_in_schema=False)
+@router.get("/e/{id}", include_in_schema=False)
 @router.get("/p/{slug}", include_in_schema=False)
 def root(request: Request, title: str = ""):
     html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
     html = replace_base_href(html, global_config.path_prefix)
     html = html.replace("<title>flatnotes</title>", f"<title>{escape(global_config.site_title)}</title>")
     headers = {}
-    if request.url.path.startswith(global_config.path_prefix + "/p/"):
+    is_public = request.url.path.startswith(global_config.path_prefix + "/p/")
+    is_encrypted = request.url.path.startswith(global_config.path_prefix + "/e/")
+    if is_public:
+        slug = request.url.path.rsplit("/", 1)[-1]
+        is_encrypted = encrypted_publications.get(slug=slug) is not None
+    if is_public or is_encrypted:
+        image_sources = "img-src 'self' data: blob:; " if is_encrypted else "img-src 'self' data: https:; "
         headers = {
             "Content-Security-Policy": (
                 "default-src 'self' data:; "
                 "script-src 'self' 'wasm-unsafe-eval'; "
                 "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: https:; "
+                + image_sources +
+                "worker-src 'self' blob:; "
                 "connect-src 'self'; object-src 'none'; "
                 "frame-src 'none'; frame-ancestors 'none'; base-uri 'self'"
             ),
@@ -346,7 +358,12 @@ async def put_encrypted_note(note_id: str, request: Request, x_revision: str = H
 
 
 @router.post("/api/encrypted-notes/protect/{title}/{note_id}", dependencies=auth_deps)
-async def protect_existing_note(title: str, note_id: str, request: Request):
+async def protect_existing_note(
+    title: str,
+    note_id: str,
+    request: Request,
+    x_source_modified: str = Header(None),
+):
     if not global_config.encryption_enabled or global_config.auth_type == AuthType.READ_ONLY:
         raise HTTPException(403, "Encryption is disabled")
     data = await request.body()
@@ -355,10 +372,13 @@ async def protect_existing_note(title: str, note_id: str, request: Request):
         with publication_store.connection(write=True) as db:
             # Check only the source file's existence. Do not read its content.
             from pathlib import Path
-            if not Path(note_storage._path_from_title(title)).is_file():
+            original_path = Path(note_storage._path_from_title(title))
+            if not original_path.is_file():
                 raise HTTPException(404, "Note not found")
+            if not x_source_modified or str(original_path.stat().st_mtime) != x_source_modified:
+                raise HTTPException(409, "The source note changed before encryption")
             revision = encrypted_store.save(note_id, data, "*")
-            Path(note_storage._path_from_title(title)).unlink()
+            original_path.unlink()
             publication_store.remove(title, db)
         note_storage._sync_index_with_retry()
         return {"id": note_id, "revision": revision}
@@ -486,6 +506,8 @@ def get_config():
     """Retrieve server-side config required for the UI."""
     return GlobalConfigResponseModel(
         auth_type=global_config.auth_type,
+        encryption_enabled=global_config.encryption_enabled,
+        sharing_enabled=global_config.sharing_enabled,
         quick_access_hide=global_config.quick_access_hide,
         quick_access_title=global_config.quick_access_title,
         quick_access_term=global_config.quick_access_term,

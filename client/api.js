@@ -218,11 +218,16 @@ export async function saveEncryptedNote(noteId, ciphertext, revision, slug = nul
   return response.data;
 }
 
-export async function protectPlainNote(title, noteId, ciphertext) {
+export async function protectPlainNote(title, noteId, ciphertext, lastModified) {
   const response = await api.post(
     "api/encrypted-notes/protect/" + encodeURIComponent(title) + "/" + noteId,
     ciphertext,
-    { headers: { "Content-Type": "application/octet-stream" } },
+    {
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "X-Source-Modified": String(lastModified),
+      },
+    },
   );
   return response.data;
 }

@@ -48,6 +48,8 @@
     v-model="isProtectModalVisible"
     :title="note.title"
     :content="note.content"
+    :lastModified="note.lastModified"
+    @protected="clearProtectedDraft"
   />
 
   <LoadingIndicator ref="loadingIndicator" class="flex h-full flex-col">
@@ -463,6 +465,11 @@ function contentChangedHandler() {
     setBeforeUnloadConfirmation(false);
     clearDraft();
   }
+}
+
+function clearProtectedDraft() {
+  clearContentChangedTimeout();
+  clearDraft();
 }
 
 // Drafts

@@ -41,9 +41,10 @@ import { EncryptedSession, newEncryptedId } from "../cryptoSession.js";
 import CustomButton from "./CustomButton.vue";
 import Modal from "./Modal.vue";
 
-const props = defineProps({ title: String, content: String });
+const props = defineProps({ title: String, content: String, lastModified: Number });
 const isVisible = defineModel({ type: Boolean });
 const router = useRouter();
+const emit = defineEmits(["protected"]);
 const password = ref("");
 const confirmation = ref("");
 const errorMessage = ref("");
@@ -71,11 +72,12 @@ async function protect() {
     const ciphertext = await cryptoSession.create(
       noteId, password.value, props.title, props.content || "",
     );
-    await protectPlainNote(props.title, noteId, ciphertext);
+    await protectPlainNote(props.title, noteId, ciphertext, props.lastModified);
     password.value = "";
     confirmation.value = "";
     localStorage.removeItem(props.title);
     sessionStorage.removeItem(props.title);
+    emit("protected");
     isVisible.value = false;
     await router.replace({ name: "encryptedNote", params: { id: noteId } });
   } catch (error) {

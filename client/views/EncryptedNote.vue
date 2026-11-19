@@ -136,6 +136,7 @@ let cryptoSession = null;
 const isNew = computed(() => props.id === "new" && !props.publicSlug);
 const canEdit = computed(() =>
   (!props.publicSlug || permission.value === "edit") &&
+  globalStore.config.authType !== "read_only" &&
   globalStore.config.encryptionEnabled,
 );
 

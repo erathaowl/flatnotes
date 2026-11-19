@@ -67,6 +67,12 @@ class PublicationStore:
                     filename TEXT NOT NULL,
                     PRIMARY KEY (publication_id, filename)
                 );
+                CREATE TABLE IF NOT EXISTS encrypted_publications (
+                    note_id TEXT PRIMARY KEY,
+                    slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    slug_mode TEXT NOT NULL CHECK(slug_mode IN ('random','title','custom')),
+                    permission TEXT NOT NULL CHECK(permission IN ('read','edit'))
+                );
                 PRAGMA user_version=1;
                 """
             )
