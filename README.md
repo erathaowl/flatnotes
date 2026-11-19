@@ -2,7 +2,7 @@
   <img src="docs/logo.svg" width="300px"></img>
 </p>
 <p align="center">
-  <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/dullage/flatnotes?style=for-the-badge">
+  <a href="https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes"><img alt="GHCR image" src="https://img.shields.io/badge/GHCR-flatnotes-blue?style=for-the-badge&logo=github"></a>
 </p>
 
 A self-hosted, database-less note-taking web app that utilises a flat folder of markdown files for storage.
@@ -60,6 +60,8 @@ A quick and easy way to get started with flatnotes is to host it on PikaPods. Ju
 
 If you'd prefer to host flatnotes yourself then the recommendation is to use Docker.
 
+Images for this fork are published to [GitHub Container Registry](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes). The `latest` image tracks published releases, while `develop` follows the development branch. Each release also has a `vX.Y.Z` image tag.
+
 ### Example Docker Run Command
 
 ```shell
@@ -72,7 +74,7 @@ docker run -d \
   -e "FLATNOTES_SECRET_KEY=aLongRandomSeriesOfCharacters" \
   -v "$(pwd)/data:/data" \
   -p "8080:8080" \
-  dullage/flatnotes:latest
+  ghcr.io/erathaowl/flatnotes:latest
 ```
 
 ### Example Docker Compose
@@ -82,7 +84,7 @@ version: "3"
 services:
   flatnotes:
     container_name: flatnotes
-    image: dullage/flatnotes:latest
+    image: ghcr.io/erathaowl/flatnotes:latest
     environment:
       PUID: 1000
       PGID: 1000
@@ -100,6 +102,14 @@ services:
 ```
 
 See the [Environment Variables](https://github.com/dullage/flatnotes/wiki/Environment-Variables) article in the wiki for a full list of configuration options.
+
+### Builds and Releases
+
+Pushes to `develop` build an application archive (available from the Actions run artifacts) and publish `ghcr.io/erathaowl/flatnotes:develop` plus a commit-specific `sha-` image tag. Pull requests build the archive without publishing an image.
+
+Pushing a version tag such as `v5.6.0` builds the archive and Docker image, publishes the image as `:v5.6.0` and `:latest`, and attaches the archive to a [GitHub Release](https://github.com/erathaowl/flatnotes/releases). A shortened tag like `v5.6` is normalized to `v5.6.0` for the release and image tags.
+
+The archive includes the Python backend and compiled frontend, together with the files needed to install Python dependencies using `uv sync --locked --no-dev`. It is a ready-to-run source bundle, not a Python wheel.
 
 ## Roadmap
 
