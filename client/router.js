@@ -25,6 +25,13 @@ const router = createRouter({
       props: true,
     },
     {
+      path: "/p/:slug",
+      name: "publicNote",
+      component: () => import("./views/PublicNote.vue"),
+      props: true,
+      meta: { public: true },
+    },
+    {
       path: "/new",
       name: "new",
       component: () => import("./views/Note.vue"),
@@ -44,7 +51,7 @@ const router = createRouter({
 // Check the user is authenticated on first navigation (unless going to login)
 let authChecked = false;
 router.beforeEach(async (to) => {
-  if (authChecked || to.name === "login") {
+  if (authChecked || to.name === "login" || to.meta.public) {
     return;
   }
   try {
@@ -64,6 +71,9 @@ router.beforeEach(async (to) => {
 
 router.afterEach((to) => {
   let title = "flatnotes";
+  if (to.name === "publicNote") {
+    title = "Shared Note - " + title;
+  }
   if (to.name === "note") {
     if (to.params.title) {
       title = `${to.params.title} - ${title}`;

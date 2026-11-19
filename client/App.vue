@@ -41,7 +41,7 @@ const toast = useToast();
 
 // '/' to search
 Mousetrap.bind("/", () => {
-  if (route.name !== "login") {
+  if (route.name !== "login" && route.name !== "publicNote") {
     toggleSearchModal();
     return false;
   }
@@ -49,7 +49,7 @@ Mousetrap.bind("/", () => {
 
 // 'CTRL + ALT/OPT + N' to create new note
 Mousetrap.bindGlobal("ctrl+alt+n", () => {
-  if (route.name !== "login") {
+  if (route.name !== "login" && route.name !== "publicNote") {
     router.push({ name: "new" });
     return false;
   }
@@ -57,7 +57,7 @@ Mousetrap.bindGlobal("ctrl+alt+n", () => {
 
 // 'CTRL + ALT/OPT + H' to go to home
 Mousetrap.bindGlobal("ctrl+alt+h", () => {
-  if (route.name !== "login") {
+  if (route.name !== "login" && route.name !== "publicNote") {
     router.push({ name: "home" });
     return false;
   }
@@ -74,7 +74,7 @@ getConfig()
   });
 
 const showNavBar = computed(() => {
-  return route.name !== "login";
+  return route.name !== "login" && route.name !== "publicNote";
 });
 
 const showNavBarLogo = computed(() => {

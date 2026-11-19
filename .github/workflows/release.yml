@@ -48,6 +48,11 @@ jobs:
           npm ci
           npm run build
 
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Test backend and publication security
+        run: uv run --with httpx --no-dev python -m unittest discover -s tests -v
+
       - name: Create application package
         run: bash scripts/build-package.sh "${{ needs.version.outputs.version }}"
 
@@ -58,7 +63,7 @@ jobs:
           if-no-files-found: error
 
   docker:
-    needs: version
+    needs: [version, package]
     runs-on: ubuntu-latest
     permissions:
       contents: read

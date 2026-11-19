@@ -1,6 +1,6 @@
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -13,11 +13,14 @@ from global_config import AuthType, GlobalConfig, GlobalConfigResponseModel
 from helpers import replace_base_href
 from notes.base import BaseNotes
 from notes.models import Note, NoteCreate, NoteUpdate, SearchResult
+from publications import PublicationStore, SlugConflictError, content_revision
+from publication_models import PublicationSettings, PublicationInfo, PublicNote, PublicNoteUpdate
 
 global_config = GlobalConfig()
 auth: BaseAuth = global_config.load_auth()
 note_storage: BaseNotes = global_config.load_note_storage()
 attachment_storage: BaseAttachments = global_config.load_attachment_storage()
+publication_store = PublicationStore(note_storage.storage_path)
 auth_deps = [Depends(auth.authenticate)] if auth else []
 router = APIRouter()
 app = FastAPI(
@@ -33,6 +36,7 @@ replace_base_href("client/dist/index.html", global_config.path_prefix)
 @router.get("/search", include_in_schema=False)
 @router.get("/new", include_in_schema=False)
 @router.get("/note/{title}", include_in_schema=False)
+@router.get("/p/{slug}", include_in_schema=False)
 def root(title: str = ""):
     with open("client/dist/index.html", "r", encoding="utf-8") as f:
         html = f.read()
@@ -114,7 +118,17 @@ if global_config.auth_type != AuthType.READ_ONLY:
     )
     def patch_note(title: str, data: NoteUpdate):
         try:
-            return note_storage.update(title, data)
+            with publication_store.connection(write=True) as db:
+                current_publication = publication_store.get_by_title(title, db)
+                updated = note_storage.update(title, data)
+                if current_publication:
+                    if updated.title != title:
+                        publication_store.rename(title, updated.title, db)
+                    if data.new_content is not None:
+                        publication_store.sync_attachments(
+                            current_publication["id"], updated.content or "", db
+                        )
+                return updated
         except ValueError:
             raise HTTPException(
                 status_code=400,
@@ -135,7 +149,9 @@ if global_config.auth_type != AuthType.READ_ONLY:
     )
     def delete_note(title: str):
         try:
-            note_storage.delete(title)
+            with publication_store.connection(write=True) as db:
+                note_storage.delete(title)
+                publication_store.remove(title, db)
         except ValueError:
             raise HTTPException(
                 status_code=400,
@@ -143,6 +159,125 @@ if global_config.auth_type != AuthType.READ_ONLY:
             )
         except FileNotFoundError:
             raise HTTPException(404, api_messages.note_not_found)
+
+
+
+# region Publications
+
+@router.get(
+    "/api/notes/{title}/publication",
+    dependencies=auth_deps,
+    response_model=PublicationInfo | None,
+)
+def get_publication(title: str):
+    try:
+        note_storage.get(title)
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Note not found")
+    return publication_store.get_by_title(title)
+
+
+if global_config.auth_type != AuthType.READ_ONLY:
+
+    @router.put(
+        "/api/notes/{title}/publication",
+        dependencies=auth_deps,
+        response_model=PublicationInfo,
+    )
+    def set_publication(title: str, settings: PublicationSettings):
+        try:
+            note = note_storage.get(title)
+        except (ValueError, FileNotFoundError):
+            raise HTTPException(404, "Note not found")
+        try:
+            return publication_store.set(
+                title, settings.slug_mode, settings.permission,
+                settings.slug, note.content or "",
+            )
+        except SlugConflictError as error:
+            raise HTTPException(409, str(error))
+        except ValueError as error:
+            raise HTTPException(422, str(error))
+
+    @router.delete(
+        "/api/notes/{title}/publication",
+        dependencies=auth_deps,
+        status_code=204,
+    )
+    def delete_publication(title: str):
+        with publication_store.connection(write=True) as db:
+            publication_store.remove(title, db)
+
+
+def public_note_or_404(slug: str):
+    publication = publication_store.get_by_slug(slug)
+    if not publication:
+        raise HTTPException(404, "Note not found")
+    try:
+        note = note_storage.get(publication["note_title"])
+    except (FileNotFoundError, ValueError):
+        raise HTTPException(404, "Note not found")
+    return publication, note
+
+
+@router.get("/api/public/notes/{slug}", response_model=PublicNote)
+def read_public_note(slug: str, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Robots-Tag"] = "noindex"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    publication, note = public_note_or_404(slug)
+    return PublicNote(
+        title=note.title,
+        content=note.content or "",
+        permission=publication["permission"],
+        revision=content_revision(note.content or ""),
+    )
+
+
+@router.patch("/api/public/notes/{slug}", response_model=PublicNote)
+def edit_public_note(slug: str, data: PublicNoteUpdate, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    with publication_store.connection(write=True) as db:
+        publication = publication_store.get_by_slug(slug, db)
+        if not publication:
+            raise HTTPException(404, "Note not found")
+        if publication["permission"] != "edit":
+            raise HTTPException(403, "Public editing is disabled")
+        try:
+            note = note_storage.get(publication["note_title"])
+        except (ValueError, FileNotFoundError):
+            raise HTTPException(404, "Note not found")
+        if content_revision(note.content or "") != data.revision:
+            raise HTTPException(409, "Note changed since it was loaded")
+        note = note_storage.update(
+            publication["note_title"],
+            NoteUpdate(new_content=data.new_content),
+        )
+        # Public edits never expand the list of public attachments.
+        return PublicNote(
+            title=note.title,
+            content=note.content or "",
+            permission=publication["permission"],
+            revision=content_revision(note.content or ""),
+        )
+
+
+@router.get("/api/public/notes/{slug}/attachments/{filename}")
+def get_public_attachment(slug: str, filename: str):
+    publication, note = public_note_or_404(slug)
+    if not publication_store.has_attachment(publication["id"], filename):
+        raise HTTPException(404, "Attachment not found")
+    try:
+        result = attachment_storage.get(filename)
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Attachment not found")
+    result.headers["Cache-Control"] = "no-store"
+    result.headers["X-Content-Type-Options"] = "nosniff"
+    result.headers["Content-Security-Policy"] = "sandbox"
+    extension = filename.lower().rsplit(".", 1)[-1]
+    if extension not in {"png", "jpg", "jpeg", "gif", "webp"}:
+        result.headers["Content-Disposition"] = "attachment"
+    return result
 
 
 # endregion

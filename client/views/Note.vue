@@ -38,6 +38,8 @@
     "
   />
 
+  <ShareModal v-model="isShareModalVisible" :title="note.title" />
+
   <LoadingIndicator ref="loadingIndicator" class="flex h-full flex-col">
     <!-- Header -->
     <div class="flex flex-col-reverse md:flex-row md:items-baseline">
@@ -54,6 +56,11 @@
 
       <!-- Buttons -->
       <div class="flex shrink-0 self-end md:self-baseline print:hidden">
+        <CustomButton
+          v-if="canModify && !isNewNote"
+          label="Share"
+          @click="isShareModalVisible = true"
+        />
         <!-- Delete Button -->
         <CustomButton
           v-show="canModify && !isNewNote"
@@ -138,6 +145,7 @@ import { Note } from "../classes.js";
 import ConfirmModal from "../components/ConfirmModal.vue";
 import CustomButton from "../components/CustomButton.vue";
 import LoadingIndicator from "../components/LoadingIndicator.vue";
+import ShareModal from "../components/ShareModal.vue";
 import Toggle from "../components/Toggle.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
@@ -158,6 +166,7 @@ const editMode = ref(false);
 const globalStore = useGlobalStore();
 const isSaveChangesModalVisible = ref(false);
 const isDeleteModalVisible = ref(false);
+const isShareModalVisible = ref(false);
 const isDraftModalVisible = ref(false);
 const isNewNote = computed(() => !props.title);
 const loadingIndicator = ref();

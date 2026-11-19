@@ -154,3 +154,33 @@ export async function createAttachment(file) {
     return Promise.reject(response);
   }
 }
+
+
+// Publication management requires the existing owner authentication.
+export async function getPublication(title) {
+  const response = await api.get("api/notes/" + encodeURIComponent(title) + "/publication");
+  return response.data;
+}
+
+export async function savePublication(title, settings) {
+  const response = await api.put("api/notes/" + encodeURIComponent(title) + "/publication", settings);
+  return response.data;
+}
+
+export async function removePublication(title) {
+  await api.delete("api/notes/" + encodeURIComponent(title) + "/publication");
+}
+
+// Anonymous endpoints use the same API host but require no credentials.
+export async function getPublicNote(slug) {
+  const response = await api.get("api/public/notes/" + encodeURIComponent(slug));
+  return response.data;
+}
+
+export async function updatePublicNote(slug, content, revision) {
+  const response = await api.patch("api/public/notes/" + encodeURIComponent(slug), {
+    newContent: content,
+    revision: revision,
+  });
+  return response.data;
+}

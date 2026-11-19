@@ -44,6 +44,7 @@ Equally, the only thing flatnotes caches is the search index and that's incremen
 * Light/dark themes.
 * Multiple authentication options (none, read-only, username/password, 2FA).
 * Restful API.
+* Per-note public sharing with read-only or optional anonymous editing.
 
 See [the wiki](https://github.com/dullage/flatnotes/wiki) for more details.
 
@@ -102,6 +103,44 @@ services:
 ```
 
 See the [Environment Variables](https://github.com/dullage/flatnotes/wiki/Environment-Variables) article in the wiki for a full list of configuration options.
+
+
+### Publishing individual notes
+
+Authenticated owners can open a note and select **Share**. Each note is private by
+default. Published notes receive a link such as
+https://notes.example.com/p/82eace7f63bc824b35a44dfb2958cdb0.
+Choose one of three URL suffix modes:
+
+- **Random** (default): a cryptographically random link identifier.
+- **Title**: a slug derived from the note title.
+- **Custom**: a manually entered URL suffix (lowercase letters, numbers and hyphens).
+
+Each note can have one active public URL. Public notes are **read-only by default**.
+The owner can enable **anyone with the link can edit**, allowing anonymous visitors
+to modify the Markdown content. Public visitors cannot rename, delete or publish
+notes, upload attachments, or use private search. Concurrent edits require matching
+content revisions and otherwise return HTTP 409.
+
+Changing the public URL revokes the previous one. Renaming the note in flatnotes
+preserves its active URL. Unpublishing or deleting the note revokes access. The
+random URL is harder to guess; custom and title-based URLs are predictable.
+Treat publicly editable links as shared editing permissions.
+
+Publication metadata is kept in the SQLite database at
+/data/.flatnotes-publications.db, separately from Markdown notes and the Whoosh
+search index. Include this database and its WAL/SHM files, if present, in backups,
+or use the SQLite backup API to produce a consistent live snapshot. The existing
+Docker volume mounted at /data preserves metadata between restarts.
+
+Attachments referenced by a note at publication time may be viewed through
+a note-scoped public endpoint. Changes made by the authenticated owner update
+the attachment allowlist. Anonymous edits cannot grant access to additional private
+attachments, and public editing does not support file uploads.
+
+The existing FLATNOTES_AUTH_TYPE=none and read_only authentication modes already
+allow broad unauthenticated access to notes. Use password or totp to ensure
+unpublished notes remain private.
 
 ### Builds and Releases
 

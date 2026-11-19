@@ -26,6 +26,11 @@ jobs:
           npm ci
           npm run build
 
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Test backend and publication security
+        run: uv run --with httpx --no-dev python -m unittest discover -s tests -v
+
       - name: Create application package
         shell: bash
         run: |
