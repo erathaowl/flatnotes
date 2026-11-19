@@ -62,6 +62,9 @@ again.
 - Their titles and tags are not available in server-side search.
 - The protected note list displays opaque identifiers while locked.
 - Images can be embedded as data URLs and encrypted with the note.
+- Other attachments are stored inside the encrypted note envelope as browser
+  data URLs, with a combined 2 MiB attachment limit. Files are downloaded and
+  decrypted only by the browser.
 - Normal attachments and external images must be removed or embedded
   before protecting an existing plain note.
 - The application does not upload unencrypted attachments from the

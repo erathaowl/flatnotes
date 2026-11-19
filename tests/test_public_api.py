@@ -189,6 +189,60 @@ class PublicApiTests(unittest.TestCase):
             404,
         )
 
+    def test_protection_migration_removes_plaintext_and_revokes_link(self):
+        from flatnotes import main
+
+        title = "ConvertExisting"
+        secret = "Sensitive project document"
+        self.create_note(title, secret)
+        initial = self.client.get("/api/notes/" + title, headers=self.headers).json()
+        publication = self.publish(title, "custom", "read", "converted-note")
+        note_id = "fe12" * 8
+
+        with patch.object(main.global_config, "encryption_enabled", True):
+            stale = self.client.post(
+                "/api/encrypted-notes/protect/" + title + "/" + note_id,
+                content=b"encrypted-document",
+                headers={**self.headers, "X-Source-Modified": "0"},
+            )
+            self.assertEqual(stale.status_code, 409)
+            self.assertTrue(Path("data/" + title + ".md").exists())
+
+            protected = self.client.post(
+                "/api/encrypted-notes/protect/" + title + "/" + note_id,
+                content=b"encrypted-document",
+                headers={
+                    **self.headers,
+                    "X-Source-Modified": str(initial["lastModified"]),
+                },
+            )
+            self.assertEqual(protected.status_code, 200, protected.text)
+
+        encrypted_path = Path("data/" + note_id + ".md.enc")
+        self.assertEqual(encrypted_path.read_bytes(), b"encrypted-document")
+        self.assertNotIn(secret.encode(), encrypted_path.read_bytes())
+        self.assertFalse(Path("data/" + title + ".md").exists())
+        self.assertEqual(
+            self.client.get("/api/notes/" + title, headers=self.headers).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.get("/api/public/notes/" + publication["slug"]).status_code,
+            404,
+        )
+        self.assertFalse(
+            any(result["title"] == title for result in self.client.get(
+                "/api/search?term=Sensitive", headers=self.headers
+            ).json())
+        )
+
+    def test_encrypted_html_security_headers(self):
+        response = self.client.get("/e/" + "ab12" * 8)
+        self.assertEqual(response.status_code, 200)
+        policy = response.headers["content-security-policy"]
+        self.assertIn("wasm-unsafe-eval", policy)
+        self.assertIn("img-src 'self' data: blob:", policy)
+
     def test_private_note_is_not_public(self):
         self.create_note("Private", "Private content")
         self.assertEqual(self.client.get("/api/notes/Private").status_code, 401)

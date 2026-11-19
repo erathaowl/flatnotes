@@ -51,9 +51,9 @@ async function derive(password, salt, parameters) {
   }
 }
 
-async function encryptContent(title, content) {
+async function encryptContent(title, content, attachments = []) {
   const nonce = randomBytes(12);
-  const plaintext = encoder.encode(JSON.stringify({ title, content }));
+  const plaintext = encoder.encode(JSON.stringify({ title, content, attachments }));
   const bytes = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv: nonce, additionalData: aad("data", activeNoteId) },
     documentKey,
@@ -132,7 +132,8 @@ async function unlock(payload) {
   const clear = new Uint8Array(clearBytes);
   try {
     const note = JSON.parse(decoder.decode(clear));
-    if (typeof note.title !== "string" || typeof note.content !== "string") {
+    if (typeof note.title !== "string" || typeof note.content !== "string" ||
+        (note.attachments !== undefined && !Array.isArray(note.attachments))) {
       throw new Error("Invalid encrypted note");
     }
     documentKey = contentKey;
@@ -151,7 +152,7 @@ self.onmessage = async ({ data: { callId, operation, payload } }) => {
     else if (operation === "unlock") result = await unlock(payload);
     else if (operation === "save") {
       if (!documentKey) throw new Error("Note is locked");
-      result = await encryptContent(payload.title, payload.content);
+      result = await encryptContent(payload.title, payload.content, payload.attachments || []);
     } else throw new Error("Unsupported crypto operation");
     self.postMessage({ callId, result });
   } catch (error) {

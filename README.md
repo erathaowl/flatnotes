@@ -114,7 +114,8 @@ Passwords are entered only in a browser form, **never in URL query strings
 or fragments**. Losing a password means losing the ability to decrypt its note.
 
 Protected images can be embedded directly into encrypted Markdown as data
-URLs. Existing plaintext attachments must be removed or embedded before a
+URLs. Other files can be added as encrypted attachments inside the note
+envelope, subject to a 2 MiB combined attachment limit. Existing plaintext attachments must be removed or embedded before a
 note can be protected. A protected note can be exported as Markdown directly
 from the browser. Converting that export into an ordinary server-stored Markdown
 note would necessarily transmit plaintext, so automatic unprotection is

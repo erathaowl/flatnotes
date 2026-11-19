@@ -378,7 +378,11 @@ async def protect_existing_note(
             if not x_source_modified or str(original_path.stat().st_mtime) != x_source_modified:
                 raise HTTPException(409, "The source note changed before encryption")
             revision = encrypted_store.save(note_id, data, "*")
-            original_path.unlink()
+            try:
+                original_path.unlink()
+            except OSError:
+                encrypted_store.delete(note_id)
+                raise
             publication_store.remove(title, db)
         note_storage._sync_index_with_retry()
         return {"id": note_id, "revision": revision}

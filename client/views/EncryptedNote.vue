@@ -71,6 +71,8 @@
             style="danger"
             @click="remove"
           />
+          <CustomButton v-if="canEdit && editing" label="Attach file" @click="fileInput?.click()" />
+          <input ref="fileInput" type="file" class="hidden" @change="attachFile" />
           <CustomButton v-if="canEdit && editing" label="Cancel" @click="cancelEdit" />
           <CustomButton v-if="canEdit && editing" label="Save" :disabled="busy" @click="save" />
           <CustomButton v-if="canEdit && !editing" label="Edit" @click="editing = true" />
@@ -78,6 +80,19 @@
       </header>
       <hr class="mb-4 border-theme-border" />
       <p v-if="message" role="alert" class="mb-3 text-theme-danger">{{ message }}</p>
+      <div v-if="attachments.length" class="mb-4 rounded border border-theme-border p-3">
+        <div class="mb-2 text-sm font-semibold">Encrypted attachments</div>
+        <ul class="space-y-1">
+          <li v-for="attachment in attachments" :key="attachment.id" class="flex flex-wrap items-center gap-2">
+            <button type="button" class="underline" @click="downloadAttachment(attachment)">
+              {{ attachment.name }}
+            </button>
+            <button v-if="editing && canEdit" type="button" class="text-theme-danger" @click="removeAttachment(attachment.id)">
+              Remove
+            </button>
+          </li>
+        </ul>
+      </div>
       <ToastEditor
         v-if="editing"
         ref="editor"
@@ -131,6 +146,9 @@ const showSharing = ref(false);
 const message = ref("");
 const loadError = ref("");
 const editor = ref(null);
+const fileInput = ref(null);
+const attachments = ref([]);
+let savedAttachments = [];
 let cryptoSession = null;
 
 const isNew = computed(() => props.id === "new" && !props.publicSlug);
@@ -175,6 +193,8 @@ async function unlock() {
     const note = await cryptoSession.unlock(activeId.value, password.value, ciphertext.value);
     title.value = note.title;
     content.value = note.content;
+    attachments.value = note.attachments || [];
+    savedAttachments = structuredClone(attachments.value);
     unlocked.value = true;
     password.value = "";
   } catch {
@@ -204,6 +224,8 @@ async function initializeNew() {
     ciphertext.value = await cryptoSession.create(activeId.value, password.value, "", "");
     title.value = "";
     content.value = "";
+    attachments.value = [];
+    savedAttachments = [];
     unlocked.value = true;
     editing.value = true;
     password.value = "";
@@ -227,11 +249,12 @@ async function save() {
   message.value = "";
   try {
     const markdown = editor.value.getMarkdown();
-    const encryptedData = await cryptoSession.save(title.value.trim(), markdown);
+    const encryptedData = await cryptoSession.save(title.value.trim(), markdown, attachments.value);
     const result = await saveEncryptedNote(
       activeId.value, encryptedData, revision.value || "*", props.publicSlug,
     );
     content.value = markdown;
+    savedAttachments = structuredClone(attachments.value);
     ciphertext.value = encryptedData;
     revision.value = result.revision;
     editing.value = false;
@@ -252,6 +275,8 @@ function lock() {
   cryptoSession = null;
   title.value = "";
   content.value = "";
+  attachments.value = [];
+  savedAttachments = [];
   password.value = "";
   confirmation.value = "";
   unlocked.value = false;
@@ -261,6 +286,7 @@ function lock() {
 }
 
 function cancelEdit() {
+  attachments.value = structuredClone(savedAttachments);
   editing.value = false;
   message.value = "";
 }
@@ -284,6 +310,53 @@ function exportMarkdown() {
   element.download = (title.value || "note") + ".md";
   element.click();
   setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+async function attachFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  const total = attachments.value.reduce((sum, item) => sum + Math.ceil(item.dataUrl.length * 0.75), 0);
+  if (file.size > 2 * 1024 * 1024 || total + file.size > 2 * 1024 * 1024) {
+    message.value = "Total encrypted attachments may not exceed 2 MiB.";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    attachments.value.push({
+      id: newEncryptedId(),
+      name: file.name,
+      dataUrl: reader.result,
+    });
+    message.value = "";
+  };
+  reader.onerror = () => {
+    message.value = "Could not read the attachment.";
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAttachment(id) {
+  attachments.value = attachments.value.filter((item) => item.id !== id);
+}
+
+function downloadAttachment(attachment) {
+  try {
+    const [header, encoded] = attachment.dataUrl.split(",", 2);
+    if (!header.startsWith("data:") || !header.endsWith(";base64")) {
+      throw new Error("Invalid encrypted attachment");
+    }
+    const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+    const type = header.slice(5, -7) || "application/octet-stream";
+    const link = URL.createObjectURL(new Blob([bytes], { type }));
+    const element = document.createElement("a");
+    element.href = link;
+    element.download = attachment.name;
+    element.click();
+    setTimeout(() => URL.revokeObjectURL(link), 1000);
+  } catch {
+    message.value = "Could not decrypt the attachment.";
+  }
 }
 
 function handleKeydown(event) {

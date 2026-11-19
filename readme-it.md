@@ -104,7 +104,8 @@ La password viene chiesta in una finestra nel browser e **non compare
 mai nell'URL**. Se perdi la password, non è possibile recuperare il contenuto.
 
 Le immagini possono essere incorporate nella nota in forma di data URL,
-poi cifrate insieme al testo. Prima di proteggere una nota esistente,
+poi cifrate insieme al testo. Altri file possono essere allegati in forma
+cifrata all'interno del file della nota, fino a 2 MiB complessivi. Prima di proteggere una nota esistente,
 occorre rimuovere o incorporare eventuali allegati esterni non cifrati.
 Puoi esportare una nota protetta come file Markdown direttamente dal
 browser. La rimozione automatica della protezione non è prevista perché

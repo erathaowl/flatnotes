@@ -39,8 +39,8 @@ export class EncryptedSession {
     return this.call("unlock", { noteId, password, ciphertext });
   }
 
-  save(title, content) {
-    return this.call("save", { title, content });
+  save(title, content, attachments = []) {
+    return this.call("save", { title, content, attachments });
   }
 
   close() {

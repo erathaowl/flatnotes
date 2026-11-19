@@ -48,14 +48,17 @@ const reader = session();
 const decrypted = await reader.call("unlock", { noteId: id, password, ciphertext });
 assert.deepEqual(decrypted, { title, content });
 
-const updated = await reader.call("save", { title, content: "Updated private text" });
+const attached = [{ id: "ab12", name: "report.pdf", dataUrl: "data:application/pdf;base64,SGVsbG8=" }];
+const updated = await reader.call("save", { title, content: "Updated private text", attachments: attached });
+assert.ok(!updated.includes("report.pdf"));
+assert.ok(!updated.includes("SGVsbG8="));
 assert.notEqual(updated, ciphertext);
 assert.ok(!updated.includes("Updated private text"));
 
 const otherReader = session();
 assert.deepEqual(
   await otherReader.call("unlock", { noteId: id, password, ciphertext: updated }),
-  { title, content: "Updated private text" },
+  { title, content: "Updated private text", attachments: attached },
 );
 
 const modified = JSON.parse(updated);
