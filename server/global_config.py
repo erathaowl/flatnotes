@@ -2,8 +2,8 @@ import sys
 from enum import Enum
 from pathlib import Path
 
-from helpers import CustomBaseModel, get_env
-from logger import logger
+from flatnotes.helpers import CustomBaseModel, get_env
+from flatnotes.logger import logger
 
 
 class GlobalConfig:

@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import unquote
 
-from helpers import is_valid_filename
+from flatnotes.helpers import is_valid_filename
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$")
 ATTACHMENT_PATTERN = re.compile(

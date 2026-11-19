@@ -20,6 +20,44 @@ A lightweight, self-hosted Markdown note-taking application with search, tags, c
 - Custom application title, logo, and favicon through environment variables.
 - REST API, Docker image hosted on GHCR, automated builds and versioned releases.
 
+## Python wheel (without Docker)
+
+Release assets include a standalone Python wheel containing the FastAPI backend,
+the complete compiled Vue frontend, and the `flatnotes` command-line launcher.
+The target machine needs **Python 3.13**, but **does not need Node.js**.
+
+Download `flatnotes-6.0.0-py3-none-any.whl` from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.0.0), then run:
+
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install flatnotes-6.0.0-py3-none-any.whl
+
+mkdir -p ./data
+export FLATNOTES_PATH="$(pwd)/data"
+export FLATNOTES_AUTH_TYPE=password
+export FLATNOTES_USERNAME=admin
+export FLATNOTES_PASSWORD="change-this-password"
+export FLATNOTES_SECRET_KEY="replace-with-a-long-random-secret"
+
+flatnotes --host 0.0.0.0 --port 8080
+```
+
+The wheel contains all static frontend files and works independently of the
+current working directory. The CLI accepts `--host`, `--port`, and
+`--forwarded-allow-ips`. Use your preferred service manager (for example,
+systemd) for production deployments; configure an HTTPS reverse proxy for
+Internet access. The `FLATNOTES_PATH` directory remains external to the
+installed package so that notes, attachments and SQLite publication settings
+survive application upgrades.
+
+To build from source, run `npm ci && npm run build`,
+`bash scripts/prepare-web-assets.sh`, then `uv build --wheel`. The wheel is
+validated in CI by installing it into a clean virtual environment from outside
+the repository, then exercising the CLI, health endpoint, HTML page, API and
+compiled JavaScript assets.
+
 ## Quick start with Docker Compose
 
 Create a `compose.yaml` file:
@@ -100,9 +138,9 @@ Back up the Markdown files, attachments, and SQLite database. For a running cont
 
 ## Builds and releases
 
-GitHub Actions on `develop` run frontend compilation and Python tests, produce an application `.tar.gz` artifact, and publish `ghcr.io/erathaowl/flatnotes:develop` and `:sha-<commit>`. Pull requests validate builds without publishing images.
+GitHub Actions on `develop` run frontend compilation and Python tests, produce an application `.tar.gz` and a Python `.whl` artifact, and publish `ghcr.io/erathaowl/flatnotes:develop` and `:sha-<commit>`. Pull requests validate builds without publishing images.
 
-Pushing a version tag `vX.Y.Z` (or `vX.Y`, normalized to `vX.Y.0`) builds and publishes `ghcr.io/erathaowl/flatnotes:vX.Y.Z`, updates `:latest`, and creates a [GitHub Release](https://github.com/erathaowl/flatnotes/releases) containing a compiled frontend/backend archive. This archive is a source bundle, not a Python wheel.
+Pushing a version tag `vX.Y.Z` (or `vX.Y`, normalized to `vX.Y.0`) builds and publishes `ghcr.io/erathaowl/flatnotes:vX.Y.Z`, updates `:latest`, and creates a [GitHub Release](https://github.com/erathaowl/flatnotes/releases) containing a compiled frontend/backend archive and an installable wheel. This archive is a source bundle, not a Python wheel.
 
 ## Documentation
 

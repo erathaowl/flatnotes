@@ -6,25 +6,11 @@
 
 set -e
 
-echo "\
-======================================
-======== Welcome to flatnotes ========
-======================================
-
-If you enjoy using flatnotes, please
-consider sponsoring the project at:
-
-https://sponsor.flatnotes.io
-
-It would really make my day 🙏.
-
-──────────────────────────────────────
-"
+echo "Starting flatnotes web server..."
 
 flatnotes_command="python -m \
                   uvicorn \
-                  main:app \
-                  --app-dir server \
+                  flatnotes.main:app \
                   --host ${FLATNOTES_HOST} \
                   --port ${FLATNOTES_PORT} \
                   --proxy-headers \

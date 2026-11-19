@@ -13,6 +13,10 @@ Documentation for [erathaowl/flatnotes](https://github.com/erathaowl/flatnotes),
 - [Image Support](https://github.com/erathaowl/flatnotes/wiki/Image-Support) — attachments and public note limitations.
 - [Keyboard Shortcuts](https://github.com/erathaowl/flatnotes/wiki/Keyboard-Shortcuts) — editor and navigation shortcuts.
 
+The project also ships an installable Python wheel with the complete web
+interface. See [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)
+for wheel installation, Docker and deployment information.
+
 ## FAQ
 
 ### Where are my notes stored?

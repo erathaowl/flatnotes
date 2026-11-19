@@ -6,7 +6,7 @@ from datetime import datetime
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
 
-from helpers import get_env, is_valid_filename
+from flatnotes.helpers import get_env, is_valid_filename
 
 from ..base import BaseAttachments
 from ..models import AttachmentCreateResponse

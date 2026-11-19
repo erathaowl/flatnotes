@@ -50,10 +50,10 @@ COPY LICENSE pyproject.toml .python-version uv.lock ./
 
 ENV UV_NO_MANAGED_PYTHON=1
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
-RUN uv sync --locked --compile-bytecode --no-dev
+RUN uv sync --locked --compile-bytecode --no-dev --no-install-project
 
-COPY server ./server
-COPY --from=build --chmod=777 ${BUILD_DIR}/client/dist ./client/dist
+COPY server ./flatnotes
+COPY --from=build --chmod=755 ${BUILD_DIR}/client/dist ./flatnotes/web/dist
 
 COPY entrypoint.sh healthcheck.sh /
 RUN chmod +x /entrypoint.sh /healthcheck.sh

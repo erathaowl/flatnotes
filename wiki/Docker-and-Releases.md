@@ -1,5 +1,29 @@
 # Docker and Releases
 
+## Python wheel
+
+Download the `flatnotes-6.0.0-py3-none-any.whl` asset from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.0.0).
+It includes the FastAPI backend and compiled Vue frontend. Installation requires
+Python 3.13, but neither Node.js nor Docker:
+
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install flatnotes-6.0.0-py3-none-any.whl
+export FLATNOTES_PATH="/var/lib/flatnotes"
+export FLATNOTES_AUTH_TYPE="password"
+export FLATNOTES_USERNAME="admin"
+export FLATNOTES_PASSWORD="your-password"
+export FLATNOTES_SECRET_KEY="your-secret"
+flatnotes --host 0.0.0.0 --port 8080
+```
+
+The wheel can be installed and run outside the repository, with site data
+persisted externally under `FLATNOTES_PATH`. The CLI supports
+`--forwarded-allow-ips` for trusted reverse proxies. A smoke test in GitHub
+Actions verifies the wheel installation and frontend files.
+
 ## Container image
 
 This fork publishes images in GitHub Container Registry:
@@ -54,12 +78,12 @@ docker run -d --name flatnotes \
 
 | Workflow | Trigger | Output |
 | --- | --- | --- |
-| Build | Push to `develop`, pull request targeting `develop`, manual run | Compiled frontend, Python tests, application archive; Docker image for pushes |
-| Release | Push of `vX.Y.Z` or `vX.Y` tag | GitHub Release archive and GHCR image |
+| Build | Push to `develop`, pull request targeting `develop`, manual run | Compiled frontend, Python tests, application archive and Python wheel; Docker image for pushes |
+| Release | Push of `vX.Y.Z` or `vX.Y` tag | GitHub Release archive, Python wheel, and GHCR image |
 
 Build pushes create image tags `:develop` and `:sha-<commit>`. Pull requests do not push to GHCR.
 
-Release tags `vX.Y` are normalized to `vX.Y.0` for the published image and release name. The release workflow builds and tests the code, pushes `:vX.Y.Z` and `:latest` to GHCR, and attaches a `.tar.gz` application bundle to the GitHub Release. The bundle includes compiled frontend assets and Python backend sources and can be installed using the locked `uv` dependencies. It is not a Python wheel.
+Release tags `vX.Y` are normalized to `vX.Y.0` for the published image and release name. The release workflow builds and tests the code, pushes `:vX.Y.Z` and `:latest` to GHCR, and attaches a `.tar.gz` application bundle and installable Python wheel to the GitHub Release. The bundle includes compiled frontend assets and Python backend sources and can be installed using the locked `uv` dependencies. It is not a Python wheel.
 
 See [GitHub Actions](https://github.com/erathaowl/flatnotes/actions), [GHCR image](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes), and [Releases](https://github.com/erathaowl/flatnotes/releases).
 

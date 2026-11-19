@@ -1,13 +1,10 @@
 import os
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
 
 
 class PublicApiTests(unittest.TestCase):
@@ -30,7 +27,7 @@ class PublicApiTests(unittest.TestCase):
             "FLATNOTES_SECRET_KEY": "test-only-secret-key",
         })
 
-        import main
+        from flatnotes import main
 
         cls.client = TestClient(main.app)
         token = cls.client.post(
@@ -64,7 +61,7 @@ class PublicApiTests(unittest.TestCase):
         return result.json()
 
     def test_branding_defaults_and_custom_assets(self):
-        import main
+        from flatnotes import main
 
         default_config = self.client.get("/api/config")
         self.assertEqual(default_config.status_code, 200)

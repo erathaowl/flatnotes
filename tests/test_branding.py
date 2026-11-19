@@ -4,11 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from sys import path as sys_path
-
-sys_path.insert(0, str(Path(__file__).resolve().parents[1] / "server"))
-
-from global_config import GlobalConfig
+from flatnotes.global_config import GlobalConfig
 
 
 class BrandingConfigTests(unittest.TestCase):

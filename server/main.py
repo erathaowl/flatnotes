@@ -1,4 +1,5 @@
 from typing import List, Literal
+from pathlib import Path
 from html import escape
 import mimetypes
 
@@ -6,17 +7,17 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Resp
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-import api_messages
-from attachments.base import BaseAttachments
-from attachments.models import AttachmentCreateResponse
-from auth.base import BaseAuth
-from auth.models import Login, Token
-from global_config import AuthType, GlobalConfig, GlobalConfigResponseModel
-from helpers import replace_base_href
-from notes.base import BaseNotes
-from notes.models import Note, NoteCreate, NoteUpdate, SearchResult
-from publications import PublicationStore, SlugConflictError, content_revision
-from publication_models import PublicationSettings, PublicationInfo, PublicNote, PublicNoteUpdate
+from flatnotes import api_messages
+from flatnotes.attachments.base import BaseAttachments
+from flatnotes.attachments.models import AttachmentCreateResponse
+from flatnotes.auth.base import BaseAuth
+from flatnotes.auth.models import Login, Token
+from flatnotes.global_config import AuthType, GlobalConfig, GlobalConfigResponseModel
+from flatnotes.helpers import replace_base_href
+from flatnotes.notes.base import BaseNotes
+from flatnotes.notes.models import Note, NoteCreate, NoteUpdate, SearchResult
+from flatnotes.publications import PublicationStore, SlugConflictError, content_revision
+from flatnotes.publication_models import PublicationSettings, PublicationInfo, PublicNote, PublicNoteUpdate
 
 global_config = GlobalConfig()
 auth: BaseAuth = global_config.load_auth()
@@ -29,7 +30,7 @@ app = FastAPI(
     docs_url=global_config.path_prefix + "/docs",
     openapi_url=global_config.path_prefix + "/openapi.json",
 )
-replace_base_href("client/dist/index.html", global_config.path_prefix)
+FRONTEND_DIR = Path(__file__).resolve().parent / "web" / "dist"
 
 
 # region UI
@@ -40,8 +41,8 @@ replace_base_href("client/dist/index.html", global_config.path_prefix)
 @router.get("/note/{title}", include_in_schema=False)
 @router.get("/p/{slug}", include_in_schema=False)
 def root(request: Request, title: str = ""):
-    with open("client/dist/index.html", "r", encoding="utf-8") as f:
-        html = f.read()
+    html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
+    html = replace_base_href(html, global_config.path_prefix)
     html = html.replace("<title>flatnotes</title>", f"<title>{escape(global_config.site_title)}</title>")
     headers = {}
     if request.url.path.startswith(global_config.path_prefix + "/p/"):
@@ -446,6 +447,6 @@ def healthcheck() -> str:
 app.include_router(router, prefix=global_config.path_prefix)
 app.mount(
     global_config.path_prefix,
-    StaticFiles(directory="client/dist"),
+    StaticFiles(directory=str(FRONTEND_DIR)),
     name="dist",
 )

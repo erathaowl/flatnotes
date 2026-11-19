@@ -18,8 +18,8 @@ from whoosh.query import Every
 from whoosh.searching import Hit
 from whoosh.support.charset import accent_map
 
-from helpers import get_env, is_valid_filename
-from logger import logger
+from flatnotes.helpers import get_env, is_valid_filename
+from flatnotes.logger import logger
 
 from ..base import BaseNotes
 from ..models import Note, NoteCreate, NoteUpdate, SearchResult

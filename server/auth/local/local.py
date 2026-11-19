@@ -9,8 +9,8 @@ from pyotp import TOTP
 from pyotp.utils import build_uri
 from qrcode import QRCode
 
-from global_config import AuthType, GlobalConfig
-from helpers import get_env
+from flatnotes.global_config import AuthType, GlobalConfig
+from flatnotes.helpers import get_env
 
 from ..base import BaseAuth
 from ..models import Login, Token

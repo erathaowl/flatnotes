@@ -17,6 +17,39 @@ Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, per
 - Titolo, logo e favicon personalizzabili attraverso variabili d'ambiente.
 - API REST, immagini Docker su GHCR, build automatizzate e release versionate.
 
+## Installazione tramite wheel Python
+
+Le release includono anche il file `flatnotes-6.0.0-py3-none-any.whl`,
+contenente **backend FastAPI, frontend Vue già compilato e comando `flatnotes`**.
+Sul server è sufficiente **Python 3.13**, senza bisogno di Node.js o Docker.
+
+Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.0.0),
+poi esegui:
+
+```bash
+python3.13 -m venv .venv
+source .venv/bin/activate
+pip install flatnotes-6.0.0-py3-none-any.whl
+
+mkdir -p ./data
+export FLATNOTES_PATH="$(pwd)/data"
+export FLATNOTES_AUTH_TYPE=password
+export FLATNOTES_USERNAME=admin
+export FLATNOTES_PASSWORD="change-this-password"
+export FLATNOTES_SECRET_KEY="replace-with-a-long-random-secret"
+
+flatnotes --host 0.0.0.0 --port 8080
+```
+
+Il wheel contiene anche gli asset statici e funziona da qualunque directory.
+Il comando accetta `--host`, `--port` e `--forwarded-allow-ips`. Per
+l'esercizio su una VM è possibile configurare systemd e un reverse proxy HTTPS.
+Note, allegati e metadati SQLite rimangono nella directory `FLATNOTES_PATH`,
+esterna al pacchetto, così gli aggiornamenti dell'applicazione non li toccano.
+
+Il wheel viene controllato in CI con installazione in un ambiente pulito e
+verifiche su CLI, endpoint `/health`, pagina HTML, API e file JavaScript.
+
 ## Avvio con Docker Compose
 
 Crea un file `compose.yaml`:
@@ -103,9 +136,9 @@ Salva note, allegati e database nei backup. A container avviato utilizza una pro
 
 ## CI/CD e release
 
-I push su `develop` attivano compilazione frontend, test Python, creazione di un archivio `.tar.gz` e pubblicazione delle immagini `:develop` e `:sha-<commit>` su GHCR. Le pull request eseguono la validazione senza pubblicare immagini.
+I push su `develop` attivano compilazione frontend, test Python, creazione di un archivio `.tar.gz` e un wheel `.whl` e pubblicazione delle immagini `:develop` e `:sha-<commit>` su GHCR. Le pull request eseguono la validazione senza pubblicare immagini.
 
-Un tag `vX.Y.Z` (oppure `vX.Y`, normalizzato in `vX.Y.0`) pubblica l'immagine versionata e aggiorna `:latest`, creando una [GitHub Release](https://github.com/erathaowl/flatnotes/releases) con archivio contenente backend e frontend compilato. L'archivio è un bundle del progetto e non un pacchetto wheel.
+Un tag `vX.Y.Z` (oppure `vX.Y`, normalizzato in `vX.Y.0`) pubblica l'immagine versionata e aggiorna `:latest`, creando una [GitHub Release](https://github.com/erathaowl/flatnotes/releases) con archivio contenente backend e frontend compilato e wheel installabile con pip. L'archivio è un bundle del progetto e non un pacchetto wheel.
 
 ## Documentazione e licenza
 

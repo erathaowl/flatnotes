@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from helpers import CustomBaseModel
+from flatnotes.helpers import CustomBaseModel
 
 
 class Login(CustomBaseModel):

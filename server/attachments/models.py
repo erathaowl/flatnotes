@@ -1,4 +1,4 @@
-from helpers import CustomBaseModel
+from flatnotes.helpers import CustomBaseModel
 
 
 class AttachmentCreateResponse(CustomBaseModel):

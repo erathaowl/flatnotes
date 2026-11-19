@@ -2,7 +2,7 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
-from helpers import CustomBaseModel
+from flatnotes.helpers import CustomBaseModel
 
 
 class PublicationSettings(CustomBaseModel):

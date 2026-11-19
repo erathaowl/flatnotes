@@ -1,7 +1,11 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "flatnotes"
-version = "5.5.5"
-description = "A database-less note taking web app that utilises a flat folder of markdown files for storage."
+version = "6.0.0"
+description = "A self-hosted Markdown note-taking app with optional public sharing."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
@@ -15,6 +19,9 @@ dependencies = [
     "python-multipart==0.0.32",
 ]
 
+[project.scripts]
+flatnotes = "flatnotes.cli:main"
+
 [dependency-groups]
 dev = [
     "black",
@@ -22,6 +29,22 @@ dev = [
     "rope",
     "isort",
 ]
+
+[tool.setuptools]
+packages = [
+    "flatnotes",
+    "flatnotes.auth",
+    "flatnotes.auth.local",
+    "flatnotes.attachments",
+    "flatnotes.attachments.file_system",
+    "flatnotes.notes",
+    "flatnotes.notes.file_system",
+    "flatnotes.web",
+]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+flatnotes = "server"
 
 [tool.isort]
 profile = "black"

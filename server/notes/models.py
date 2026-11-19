@@ -4,7 +4,7 @@ from pydantic import Field
 from pydantic.functional_validators import AfterValidator
 from typing_extensions import Annotated
 
-from helpers import CustomBaseModel, is_valid_filename, strip_whitespace
+from flatnotes.helpers import CustomBaseModel, is_valid_filename, strip_whitespace
 
 
 class NoteBase(CustomBaseModel):

@@ -28,7 +28,7 @@ jobs:
           RAW_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
           if [[ -z "$RAW_TAG" ]]; then
-            RAW_TAG="$(tr -d '[:space:]' < .github/release-request.txt)"
+            RAW_TAG="$(head -n 1 .github/release-request.txt | tr -d '[:space:]')"
           fi
           if [[ ! "$RAW_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
             echo "Unsupported release tag: $RAW_TAG" >&2
@@ -59,8 +59,33 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
+      - name: Check project version
+        env:
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os
+          import tomllib
+
+          with open("pyproject.toml", "rb") as source:
+              version = tomllib.load(source)["project"]["version"]
+          assert version == os.environ["RELEASE_VERSION"], (
+              f"Project version {version} does not match release version "
+              f"{os.environ['RELEASE_VERSION']}"
+          )
+          PY
+
+      - name: Bundle frontend into Python package
+        run: bash scripts/prepare-web-assets.sh
+
       - name: Test backend and publication security
-        run: uv run --with httpx --no-dev python -m unittest discover -s tests -v
+        run: uv run --with httpx --locked --no-dev python -m unittest discover -s tests -v
+
+      - name: Build Python wheel
+        run: uv build --wheel --out-dir dist
+
+      - name: Test wheel in a clean environment
+        run: bash scripts/test-wheel.sh
 
       - name: Create application package
         run: bash scripts/build-package.sh "${{ needs.version.outputs.version }}"
@@ -68,7 +93,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: flatnotes-release-package
-          path: dist/*.tar.gz
+          path: |
+            dist/*.tar.gz
+            dist/*.whl
           if-no-files-found: error
 
   docker:
@@ -111,6 +138,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: flatnotes-release-package
@@ -122,8 +151,20 @@ jobs:
           RELEASE_TAG: ${{ needs.version.outputs.tag }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          gh release create "$RELEASE_TAG" "dist/flatnotes-${RELEASE_VERSION}.tar.gz" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "$RELEASE_TAG" \
-            --generate-notes
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Replace the published tag only after all build and package tests pass.
+            git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
+            git push --force origin "refs/tags/$RELEASE_TAG"
+            gh release upload "$RELEASE_TAG" dist/*.tar.gz dist/*.whl \
+              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TAG"
+          else
+            gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.whl \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TAG" \
+              --generate-notes
+          fi
