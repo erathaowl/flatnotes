@@ -1,207 +1,113 @@
 <p align="center">
-  <img src="docs/logo.svg" width="300px"></img>
+  <img src="docs/logo.svg" alt="flatnotes" width="300">
 </p>
 <p align="center">
   <a href="https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes"><img alt="GHCR image" src="https://img.shields.io/badge/GHCR-flatnotes-blue?style=for-the-badge&logo=github"></a>
 </p>
 
-A self-hosted, database-less note-taking web app that utilises a flat folder of markdown files for storage.
+# flatnotes
 
-Log into the [demo site](https://demo.flatnotes.io) and take a look around. *Note: This site resets every 15 minutes.*
+A lightweight, self-hosted Markdown note-taking application with search, tags, configurable branding, and selective note sharing. Notes remain ordinary `.md` files. A Whoosh index supports search; a small SQLite database stores **only publication metadata**.
 
-## Contents
-
-* [Design Principle](#design-principle)
-* [Features](#features)
-* [Getting Started](#getting-started)
-  * [Hosted](#hosted)
-  * [Self Hosted](#self-hosted)
-* [Roadmap](#roadmap)
-* [Contributing](#contributing)
-* [Sponsorship](#sponsorship)
-* [Thanks](#thanks)
-
-## Design Principle
-
-flatnotes is designed to be a distraction-free note-taking app that puts your note content first. This means:
-
-* A clean and simple user interface.
-* No folders, notebooks or anything like that. Just all of your notes, backed by powerful search and tagging functionality.
-* Quick access to a full-text search from anywhere in the app (keyboard shortcut "/").
-
-Another key design principle is not to take your notes hostage. Your notes are just markdown files. There's no database, proprietary formatting, complicated folder structures or anything like that. You're free at any point to just move the files elsewhere and use another app.
-
-Equally, the only thing flatnotes caches is the search index and that's incrementally synced on every search (and when flatnotes first starts). This means that you're free to add, edit & delete the markdown files outside of flatnotes even whilst flatnotes is running.
+[Documentazione in italiano](readme-it.md) · [Documentation / Wiki sources](wiki/Home.md) · [Container images](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes) · [Releases](https://github.com/erathaowl/flatnotes/releases)
 
 ## Features
 
-* Mobile responsive web interface.
-* Raw/WYSIWYG markdown editor modes.
-* Advanced search functionality.
-* Note "tagging" functionality.
-* Customisable home page.
-* Wikilink support to easily link to other notes (`[[My Other Note]]`).
-* Light/dark themes.
-* Multiple authentication options (none, read-only, username/password, 2FA).
-* Restful API.
-* Per-note public sharing with read-only or optional anonymous editing.
+- Responsive Vue interface with Markdown and WYSIWYG editing, light/dark themes, and full-text search.
+- Tags, wiki-style links (`[[Note Title]]`), image attachments, and configurable quick-access notes.
+- Authentication modes: `none`, `read_only`, `password`, and `totp`.
+- **Per-note publication** with anonymous read-only access or optional anonymous editing. Each published note has a random, title-derived, or custom URL.
+- Custom application title, logo, and favicon through environment variables.
+- REST API, Docker image hosted on GHCR, automated builds and versioned releases.
 
-See [the wiki](https://github.com/dullage/flatnotes/wiki) for more details.
+## Quick start with Docker Compose
 
-## Getting Started
+Create a `compose.yaml` file:
 
-### Hosted
-
-A quick and easy way to get started with flatnotes is to host it on PikaPods. Just click the button below and follow the instructions.
-
-[![PikaPods](https://www.pikapods.com/static/run-button-34.svg)](https://www.pikapods.com/pods?run=flatnotes)
-
-
-### Self Hosted
-
-If you'd prefer to host flatnotes yourself then the recommendation is to use Docker.
-
-Images for this fork are published to [GitHub Container Registry](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes). The `latest` image tracks published releases, while `develop` follows the development branch. Each release also has a `vX.Y.Z` image tag.
-
-### Example Docker Run Command
-
-```shell
-docker run -d \
-  -e "PUID=1000" \
-  -e "PGID=1000" \
-  -e "FLATNOTES_AUTH_TYPE=password" \
-  -e "FLATNOTES_USERNAME=user" \
-  -e 'FLATNOTES_PASSWORD=changeMe!' \
-  -e "FLATNOTES_SECRET_KEY=aLongRandomSeriesOfCharacters" \
-  -v "$(pwd)/data:/data" \
-  -p "8080:8080" \
-  ghcr.io/erathaowl/flatnotes:latest
-```
-
-### Example Docker Compose
 ```yaml
-version: "3"
-
 services:
   flatnotes:
+    image: ghcr.io/erathaowl/flatnotes:develop
     container_name: flatnotes
-    image: ghcr.io/erathaowl/flatnotes:latest
-    environment:
-      PUID: 1000
-      PGID: 1000
-      FLATNOTES_AUTH_TYPE: "password"
-      FLATNOTES_USERNAME: "user"
-      FLATNOTES_PASSWORD: "changeMe!"
-      FLATNOTES_SECRET_KEY: "aLongRandomSeriesOfCharacters"
-    volumes:
-      - "./data:/data"
-      # Optional. Allows you to save the search index in a different location: 
-      # - "./index:/data/.flatnotes"
     ports:
       - "8080:8080"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      FLATNOTES_AUTH_TYPE: "password"
+      FLATNOTES_USERNAME: "admin"
+      FLATNOTES_PASSWORD: "${FLATNOTES_PASSWORD}"
+      FLATNOTES_SECRET_KEY: "${FLATNOTES_SECRET_KEY}"
+    volumes:
+      - ./data:/data
     restart: unless-stopped
 ```
 
-See the [Environment Variables](https://github.com/dullage/flatnotes/wiki/Environment-Variables) article in the wiki for a full list of configuration options.
+Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, using strong independent values (for example, generate a secret with `openssl rand -hex 32`), then run:
 
-
-### Publishing individual notes
-
-Authenticated owners can open a note and select **Share**. Each note is private by
-default. Published notes receive a link such as
-https://notes.example.com/p/82eace7f63bc824b35a44dfb2958cdb0.
-Choose one of three URL suffix modes:
-
-- **Random** (default): a cryptographically random link identifier.
-- **Title**: a slug derived from the note title.
-- **Custom**: a manually entered URL suffix (lowercase letters, numbers and hyphens).
-
-Each note can have one active public URL. Public notes are **read-only by default**.
-The owner can enable **anyone with the link can edit**, allowing anonymous visitors
-to modify the Markdown content. Public visitors cannot rename, delete or publish
-notes, upload attachments, or use private search. Concurrent edits require matching
-content revisions and otherwise return HTTP 409.
-
-Changing the public URL revokes the previous one. Renaming the note in flatnotes
-preserves its active URL. Unpublishing or deleting the note revokes access. The
-random URL is harder to guess; custom and title-based URLs are predictable.
-Treat publicly editable links as shared editing permissions.
-
-Publication metadata is kept in the SQLite database at
-/data/.flatnotes-publications.db, separately from Markdown notes and the Whoosh
-search index. Include this database and its WAL/SHM files, if present, in backups,
-or use the SQLite backup API to produce a consistent live snapshot. The existing
-Docker volume mounted at /data preserves metadata between restarts.
-
-Attachments referenced by a note at publication time may be viewed through
-a note-scoped public endpoint. Changes made by the authenticated owner update
-the attachment allowlist. Anonymous edits cannot grant access to additional private
-attachments, and public editing does not support file uploads.
-
-The existing FLATNOTES_AUTH_TYPE=none and read_only authentication modes already
-allow broad unauthenticated access to notes. Use password or totp to ensure
-unpublished notes remain private.
-
-### Custom branding
-
-Branding can be configured independently of the application code using these
-optional environment variables:
-
-| Variable | Default | Description |
-| --- | --- | --- |
-| `FLATNOTES_SITE_TITLE` | `flatnotes` | Browser title and the wordmark next to the default icon |
-| `FLATNOTES_LOGO_PATH` | Unset | Absolute path inside the container to a replacement logo |
-| `FLATNOTES_FAVICON_PATH` | Unset | Absolute path inside the container to a replacement favicon |
-
-For Docker Compose, place your images in the existing persisted data directory,
-for example `./data/branding/logo.svg` and `./data/branding/favicon.ico`,
-then add the following environment entries to the `flatnotes` service:
-
-```yaml
-environment:
-  FLATNOTES_SITE_TITLE: "My Notes"
-  FLATNOTES_LOGO_PATH: "/data/branding/logo.svg"
-  FLATNOTES_FAVICON_PATH: "/data/branding/favicon.ico"
+```bash
+docker compose up -d
 ```
 
-The existing volume mapping `./data:/data` makes these files available inside
-the container. Logo images support SVG, PNG, JPEG, and WebP. Favicons support
-ICO, SVG, PNG, JPEG, and WebP. The paths must be absolute and point to
-existing files when the application starts; invalid configuration stops startup
-with an error.
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. Use `:develop` for the current development build; `:latest` refers to the latest tagged release (and is only available once a release has been published).
 
-When no branding variables are set, the original logo, wordmark, page title,
-and favicons remain unchanged. If only the title is set, the default icon
-remains and the wordmark uses your custom title. A configured logo replaces
-the complete icon and wordmark together. Branding images are served publicly
-at `/api/branding/logo` and `/api/branding/favicon`, so they also appear
-on the login page. Restart the container after changing branding settings.
+See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
-### Builds and Releases
+## Publish a note
 
-Pushes to `develop` build an application archive (available from the Actions run artifacts) and publish `ghcr.io/erathaowl/flatnotes:develop` plus a commit-specific `sha-` image tag. Pull requests build the archive without publishing an image.
+Open an existing note and click **Share**. Notes are private by default; choose **Public: read-only** or **Public: anyone with the link can edit**. Select a URL identifier:
 
-Pushing a version tag such as `v5.6.0` builds the archive and Docker image, publishes the image as `:v5.6.0` and `:latest`, and attaches the archive to a [GitHub Release](https://github.com/erathaowl/flatnotes/releases). A shortened tag like `v5.6` is normalized to `v5.6.0` for the release and image tags.
+- **Random** (default): a hard-to-guess identifier, such as `/p/82eace7f63bc824b35a44dfb2958cdb0`.
+- **Note title**: a readable slug derived from the current title.
+- **Custom**: your own suffix containing lowercase letters, numbers, or hyphens.
 
-The archive includes the Python backend and compiled frontend, together with the files needed to install Python dependencies using `uv sync --locked --no-dev`. It is a ready-to-run source bundle, not a Python wheel.
+Click **Save** to apply the settings and close the Share dialog. You can reopen it to copy the resulting link or unpublish the note. Existing public links stop working after revocation or a URL change. Renaming a note inside flatnotes preserves its existing public URL.
 
-## Roadmap
+Anonymous users can view only published notes and cannot access the private note list or search when using `password` or `totp`. Public editors can change note **content only**; they cannot rename, delete, upload attachments, or change sharing settings. Concurrent edits use a revision check and may return HTTP 409.
 
-I want to keep flatnotes as simple and distraction-free as possible which means limiting new features. This said, I welcome feedback and suggestions.
+**Security:** A public editable link grants editing permission to anyone who knows it. Title-based and custom URLs are predictable. For selective publication, use `FLATNOTES_AUTH_TYPE=password` or `totp`; the `none` and `read_only` modes expose broader note access by design.
 
-## Contributing
+See [Publishing Notes](wiki/Publishing-Notes.md) for API details, attachment restrictions, and revocation behavior.
 
-If you're interested in contributing to flatnotes, then please read the [CONTRIBUTING.md](CONTRIBUTING.md) file.
+## Custom branding
 
-## Sponsorship
+Three optional environment variables change the application branding:
 
-If you find this project useful, please consider buying me a beer. It would genuinely make my day.
+| Variable | Example | Behavior |
+| --- | --- | --- |
+| `FLATNOTES_SITE_TITLE` | `My Notes` | Browser title and displayed wordmark |
+| `FLATNOTES_LOGO_PATH` | `/data/branding/logo.svg` | Replaces the complete default logo |
+| `FLATNOTES_FAVICON_PATH` | `/data/branding/favicon.ico` | Replaces the browser favicon |
 
-[![Sponsor](https://img.shields.io/static/v1?label=Sponsor&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86)](https://github.com/sponsors/Dullage)
+For Docker, place your assets in `./data/branding/` when using the volume shown above. File paths must be absolute **inside the container**. Omit any variable to keep the corresponding default. Supported logo formats: SVG, PNG, JPEG, WebP; supported favicon formats also include ICO.
 
-## Thanks
+See [Custom Branding](wiki/Custom-Branding.md).
 
-A special thanks to 2 fantastic open-source projects that make flatnotes possible.
+## TOTP authentication
 
-* [Whoosh](https://whoosh.readthedocs.io/en/latest/intro.html) - A fast, pure Python search engine library.
-* [TOAST UI Editor](https://ui.toast.com/tui-editor) - A GFM Markdown and WYSIWYG editor for the browser.
+Change `FLATNOTES_AUTH_TYPE` to `totp` and add `FLATNOTES_TOTP_KEY` with a random, persistent secret. Restart the container and inspect `docker compose logs flatnotes`: the startup output includes a QR code and a manual enrollment secret for your authenticator app. Login requires username, password, and the current six-digit code. Treat the startup logs as sensitive.
+
+The default JWT session lifetime is 30 days, configurable with `FLATNOTES_SESSION_EXPIRY_DAYS`. See [Environment Variables](wiki/Environment-Variables.md#totp-setup).
+
+## Data and backups
+
+- `/data/*.md`: note files, portable to other Markdown editors.
+- `/data/attachments/`: uploaded images and other attachments.
+- `/data/.flatnotes/`: regenerable Whoosh search index.
+- `/data/.flatnotes-publications.db`: persistent SQLite publication settings and public attachment permissions.
+
+Back up the Markdown files, attachments, and SQLite database. For a running container, use a SQLite-consistent backup (or stop the container before copying SQLite files). Removing the Whoosh index is safe while the application is stopped; keep the publication database.
+
+## Builds and releases
+
+GitHub Actions on `develop` run frontend compilation and Python tests, produce an application `.tar.gz` artifact, and publish `ghcr.io/erathaowl/flatnotes:develop` and `:sha-<commit>`. Pull requests validate builds without publishing images.
+
+Pushing a version tag `vX.Y.Z` (or `vX.Y`, normalized to `vX.Y.0`) builds and publishes `ghcr.io/erathaowl/flatnotes:vX.Y.Z`, updates `:latest`, and creates a [GitHub Release](https://github.com/erathaowl/flatnotes/releases) containing a compiled frontend/backend archive. This archive is a source bundle, not a Python wheel.
+
+## Documentation
+
+The wiki sources live in [`wiki/`](wiki/Home.md) and are version-controlled alongside the application. They can also be published to the [GitHub Wiki](https://github.com/erathaowl/flatnotes/wiki) when the wiki is initialized. Consult [Home](wiki/Home.md) for links to search syntax, tagging, attachments, authentication, publishing, branding, and CI/CD.
+
+## Contributing and license
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [LICENSE](LICENSE). This fork is based on [flatnotes](https://github.com/dullage/flatnotes). It uses [Whoosh](https://whoosh.readthedocs.io/) and [TOAST UI Editor](https://ui.toast.com/tui-editor).

@@ -1,0 +1,50 @@
+name: Publish Wiki
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'wiki/**'
+      - '.github/workflows/publish-wiki.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync wiki pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          wiki_url="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git"
+
+          # Forks have separate wikis. Create the first Home page in GitHub if needed.
+          if ! git ls-remote "$wiki_url" HEAD >/dev/null 2>&1; then
+            echo "::warning::Wiki is not initialized. Create a Home page in the repository Wiki tab, then rerun this workflow."
+            exit 0
+          fi
+
+          git clone --quiet "$wiki_url" wiki-checkout
+          git -C wiki-checkout config user.name "github-actions[bot]"
+          git -C wiki-checkout config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # The wiki/ folder is the source of truth for Markdown wiki pages.
+          find wiki-checkout -maxdepth 1 -type f -name '*.md' -delete
+          cp wiki/*.md wiki-checkout/
+
+          git -C wiki-checkout add -A
+          if git -C wiki-checkout diff --cached --quiet; then
+            echo "Wiki pages are already up to date."
+            exit 0
+          fi
+
+          git -C wiki-checkout commit -m "docs: sync wiki pages from develop"
+          git -C wiki-checkout push origin HEAD
