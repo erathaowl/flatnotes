@@ -18,7 +18,7 @@ class PublicApiTests(unittest.TestCase):
         os.chdir(cls.directory.name)
         Path("client/dist").mkdir(parents=True)
         Path("client/dist/index.html").write_text(
-            '<html><head><base href="/"></head><body>flatnotes</body></html>',
+            '<html><head><base href="/"><title>flatnotes</title></head><body>flatnotes</body></html>',
             encoding="utf-8",
         )
         Path("data").mkdir()
