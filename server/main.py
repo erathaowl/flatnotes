@@ -1,6 +1,6 @@
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -37,10 +37,25 @@ replace_base_href("client/dist/index.html", global_config.path_prefix)
 @router.get("/new", include_in_schema=False)
 @router.get("/note/{title}", include_in_schema=False)
 @router.get("/p/{slug}", include_in_schema=False)
-def root(title: str = ""):
+def root(request: Request, title: str = ""):
     with open("client/dist/index.html", "r", encoding="utf-8") as f:
         html = f.read()
-    return HTMLResponse(content=html)
+    headers = {}
+    if request.url.path.startswith(global_config.path_prefix + "/p/"):
+        headers = {
+            "Content-Security-Policy": (
+                "default-src 'self' data:; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "connect-src 'self'; object-src 'none'; "
+                "frame-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+            ),
+            "Referrer-Policy": "no-referrer",
+            "Cache-Control": "no-store",
+            "X-Robots-Tag": "noindex",
+        }
+    return HTMLResponse(content=html, headers=headers)
 
 
 # endregion

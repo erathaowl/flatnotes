@@ -67,7 +67,10 @@ class PublicApiTests(unittest.TestCase):
         self.assertEqual(self.client.get("/api/notes/Private").status_code, 401)
         self.assertEqual(self.client.get("/api/search?term=Private").status_code, 401)
         self.assertEqual(self.client.get("/api/public/notes/private").status_code, 404)
-        self.assertEqual(self.client.get("/p/example").status_code, 200)
+        page = self.client.get("/p/example")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("script-src 'self'", page.headers["content-security-policy"])
+        self.assertEqual(page.headers["referrer-policy"], "no-referrer")
 
     def test_public_read_edit_conflicts_and_revocation(self):
         self.create_note("Shared", "Initial")

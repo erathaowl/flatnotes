@@ -54,7 +54,7 @@
     <div class="flex flex-wrap justify-end gap-2">
       <CustomButton v-if="published" label="Unpublish" style="danger" :disabled="busy" @click="unpublish" />
       <CustomButton
-        v-if="published && access !== 'private'"
+        v-if="published && access !== 'private' && previewSlug === published.slug"
         label="Copy link"
         :disabled="busy || !previewSlug"
         @click="copyLink"
