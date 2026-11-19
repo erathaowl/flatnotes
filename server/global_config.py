@@ -1,5 +1,6 @@
 import sys
 from enum import Enum
+from pathlib import Path
 
 from helpers import CustomBaseModel, get_env
 from logger import logger
@@ -15,6 +16,13 @@ class GlobalConfig:
         self.quick_access_sort: str = self._quick_access_sort()
         self.quick_access_limit: int = self._quick_access_limit()
         self.path_prefix: str = self._load_path_prefix()
+        self.site_title: str = get_env("FLATNOTES_SITE_TITLE", default="flatnotes").strip() or "flatnotes"
+        self.logo_path: str | None = self._load_brand_asset(
+            "FLATNOTES_LOGO_PATH", {".png", ".jpg", ".jpeg", ".webp", ".svg"}
+        )
+        self.favicon_path: str | None = self._load_brand_asset(
+            "FLATNOTES_FAVICON_PATH", {".ico", ".png", ".jpg", ".jpeg", ".webp", ".svg"}
+        )
 
     def load_auth(self):
         if self.auth_type in (AuthType.NONE, AuthType.READ_ONLY):
@@ -101,6 +109,20 @@ class GlobalConfig:
             sys.exit(1)
         return value
 
+    @staticmethod
+    def _load_brand_asset(key: str, extensions: set[str]) -> str | None:
+        value = get_env(key)
+        if value is None:
+            return None
+        path = Path(value)
+        if not path.is_absolute() or not path.is_file() or path.suffix.lower() not in extensions:
+            logger.error(
+                f"{key} must be an absolute path to an existing image "
+                f"({', '.join(sorted(extensions))})."
+            )
+            sys.exit(1)
+        return str(path.resolve())
+
 
 class AuthType(str, Enum):
     NONE = "none"
@@ -116,3 +138,6 @@ class GlobalConfigResponseModel(CustomBaseModel):
     quick_access_term: str
     quick_access_sort: str
     quick_access_limit: int
+    site_title: str
+    logo_url: str | None = None
+    favicon_url: str | None = None

@@ -3,6 +3,7 @@ import * as constants from "./constants.js";
 import { createRouter, createWebHistory } from "vue-router";
 
 import { authCheck } from "./api.js";
+import { useGlobalStore } from "./globalStore.js";
 
 const router = createRouter({
   history: createWebHistory(""),
@@ -69,8 +70,8 @@ router.beforeEach(async (to) => {
   }
 });
 
-router.afterEach((to) => {
-  let title = "flatnotes";
+export function updatePageTitle(to) {
+  let title = useGlobalStore().config.siteTitle || "flatnotes";
   if (to.name === "publicNote") {
     title = "Shared Note - " + title;
   }
@@ -82,6 +83,8 @@ router.afterEach((to) => {
     }
   }
   document.title = title;
-});
+}
+
+router.afterEach(updatePageTitle);
 
 export default router;

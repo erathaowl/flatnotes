@@ -1,6 +1,13 @@
 <template>
   <div class="flex items-center">
+    <img
+      v-if="globalStore.config.logoUrl"
+      :src="globalStore.config.logoUrl"
+      :alt="siteTitle"
+      class="h-9 max-w-[240px] object-contain"
+    />
     <svg
+      v-else
       width="36"
       height="36"
       viewBox="0 0 36 36"
@@ -15,6 +22,7 @@
       />
     </svg>
     <svg
+      v-if="!globalStore.config.logoUrl && siteTitle === 'flatnotes'"
       width="149"
       height="29"
       viewBox="0 0 149 29"
@@ -28,10 +36,21 @@
         fill="currentColor"
       />
     </svg>
+    <span
+      v-if="!globalStore.config.logoUrl && siteTitle !== 'flatnotes'"
+      class="ml-2 max-w-[240px] truncate text-2xl font-semibold text-theme-text-muted"
+      :class="{ 'hidden sm:block': props.responsive }"
+    >{{ siteTitle }}</span>
   </div>
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useGlobalStore } from "../globalStore.js";
+
+const globalStore = useGlobalStore();
+const siteTitle = computed(() => globalStore.config.siteTitle || "flatnotes");
+
 const props = defineProps({
   responsive: {
     type: Boolean,

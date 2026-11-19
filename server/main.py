@@ -1,7 +1,9 @@
 from typing import List, Literal
+from html import escape
+import mimetypes
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 import api_messages
@@ -40,6 +42,7 @@ replace_base_href("client/dist/index.html", global_config.path_prefix)
 def root(request: Request, title: str = ""):
     with open("client/dist/index.html", "r", encoding="utf-8") as f:
         html = f.read()
+    html = html.replace("<title>flatnotes</title>", f"<title>{escape(global_config.site_title)}</title>")
     headers = {}
     if request.url.path.startswith(global_config.path_prefix + "/p/"):
         headers = {
@@ -340,7 +343,39 @@ def get_config():
         quick_access_term=global_config.quick_access_term,
         quick_access_sort=global_config.quick_access_sort,
         quick_access_limit=global_config.quick_access_limit,
+        site_title=global_config.site_title,
+        logo_url="api/branding/logo" if global_config.logo_path else None,
+        favicon_url="api/branding/favicon" if global_config.favicon_path else None,
     )
+
+
+# endregion
+
+
+# region Branding
+
+def branding_image(path: str | None) -> FileResponse:
+    if path is None:
+        raise HTTPException(status_code=404, detail="Branding image not configured")
+    return FileResponse(
+        path,
+        media_type=mimetypes.guess_type(path)[0],
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox; default-src 'none'",
+        },
+    )
+
+
+@router.get("/api/branding/logo", include_in_schema=False)
+def get_branding_logo():
+    return branding_image(global_config.logo_path)
+
+
+@router.get("/api/branding/favicon", include_in_schema=False)
+def get_branding_favicon():
+    return branding_image(global_config.favicon_path)
 
 
 # endregion

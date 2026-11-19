@@ -30,7 +30,7 @@ import { loadTheme } from "./helpers.js";
 import NavBar from "./partials/NavBar.vue";
 import SearchModal from "./partials/SearchModal.vue";
 import LoadingIndicator from "./components/LoadingIndicator.vue";
-import router from "./router.js";
+import router, { updatePageTitle } from "./router.js";
 
 const globalStore = useGlobalStore();
 const isSearchModalVisible = ref(false);
@@ -66,6 +66,16 @@ Mousetrap.bindGlobal("ctrl+alt+h", () => {
 getConfig()
   .then((data) => {
     globalStore.config = data;
+    updatePageTitle(router.currentRoute.value);
+    if (data.faviconUrl) {
+      document
+        .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"], link[rel="mask-icon"]')
+        .forEach((link) => link.remove());
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = new URL(data.faviconUrl, document.baseURI).href;
+      document.head.appendChild(link);
+    }
     loadingIndicator.value.setLoaded();
   })
   .catch((error) => {

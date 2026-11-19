@@ -142,6 +142,41 @@ The existing FLATNOTES_AUTH_TYPE=none and read_only authentication modes already
 allow broad unauthenticated access to notes. Use password or totp to ensure
 unpublished notes remain private.
 
+### Custom branding
+
+Branding can be configured independently of the application code using these
+optional environment variables:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `FLATNOTES_SITE_TITLE` | `flatnotes` | Browser title and the wordmark next to the default icon |
+| `FLATNOTES_LOGO_PATH` | Unset | Absolute path inside the container to a replacement logo |
+| `FLATNOTES_FAVICON_PATH` | Unset | Absolute path inside the container to a replacement favicon |
+
+For Docker Compose, place your images in the existing persisted data directory,
+for example `./data/branding/logo.svg` and `./data/branding/favicon.ico`,
+then add the following environment entries to the `flatnotes` service:
+
+```yaml
+environment:
+  FLATNOTES_SITE_TITLE: "My Notes"
+  FLATNOTES_LOGO_PATH: "/data/branding/logo.svg"
+  FLATNOTES_FAVICON_PATH: "/data/branding/favicon.ico"
+```
+
+The existing volume mapping `./data:/data` makes these files available inside
+the container. Logo images support SVG, PNG, JPEG, and WebP. Favicons support
+ICO, SVG, PNG, JPEG, and WebP. The paths must be absolute and point to
+existing files when the application starts; invalid configuration stops startup
+with an error.
+
+When no branding variables are set, the original logo, wordmark, page title,
+and favicons remain unchanged. If only the title is set, the default icon
+remains and the wordmark uses your custom title. A configured logo replaces
+the complete icon and wordmark together. Branding images are served publicly
+at `/api/branding/logo` and `/api/branding/favicon`, so they also appear
+on the login page. Restart the container after changing branding settings.
+
 ### Builds and Releases
 
 Pushes to `develop` build an application archive (available from the Actions run artifacts) and publish `ghcr.io/erathaowl/flatnotes:develop` plus a commit-specific `sha-` image tag. Pull requests build the archive without publishing an image.

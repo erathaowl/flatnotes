@@ -135,7 +135,7 @@ async function save() {
       slug: slugMode.value === "custom" ? customSlug.value : null,
       permission: access.value,
     });
-    await load();
+    isVisible.value = false;
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Failed to publish this note.";
   } finally {

@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -61,6 +62,45 @@ class PublicApiTests(unittest.TestCase):
         )
         self.assertEqual(result.status_code, 200, result.text)
         return result.json()
+
+    def test_branding_defaults_and_custom_assets(self):
+        import main
+
+        default_config = self.client.get("/api/config")
+        self.assertEqual(default_config.status_code, 200)
+        self.assertEqual(default_config.json()["siteTitle"], "flatnotes")
+        self.assertIsNone(default_config.json()["logoUrl"])
+        self.assertIsNone(default_config.json()["faviconUrl"])
+        self.assertEqual(self.client.get("/api/branding/logo").status_code, 404)
+        self.assertEqual(self.client.get("/api/branding/favicon").status_code, 404)
+
+        logo = Path("data/custom-logo.svg")
+        icon = Path("data/custom-icon.png")
+        logo.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+        icon.write_bytes(b"png-content")
+        with (
+            patch.object(main.global_config, "site_title", "Fabio's <Notes>"),
+            patch.object(main.global_config, "logo_path", str(logo.resolve())),
+            patch.object(main.global_config, "favicon_path", str(icon.resolve())),
+        ):
+            config = self.client.get("/api/config").json()
+            self.assertEqual(config["siteTitle"], "Fabio's <Notes>")
+            self.assertEqual(config["logoUrl"], "api/branding/logo")
+            self.assertEqual(config["faviconUrl"], "api/branding/favicon")
+
+            page = self.client.get("/")
+            self.assertIn("<title>Fabio&#x27;s &lt;Notes&gt;</title>", page.text)
+
+            image = self.client.get("/api/branding/logo")
+            self.assertEqual(image.status_code, 200)
+            self.assertEqual(image.headers["content-type"], "image/svg+xml")
+            self.assertEqual(image.headers["x-content-type-options"], "nosniff")
+            self.assertEqual(image.content, logo.read_bytes())
+
+            favicon = self.client.get("/api/branding/favicon")
+            self.assertEqual(favicon.status_code, 200)
+            self.assertEqual(favicon.headers["content-type"], "image/png")
+            self.assertEqual(favicon.content, icon.read_bytes())
 
     def test_private_note_is_not_public(self):
         self.create_note("Private", "Private content")
