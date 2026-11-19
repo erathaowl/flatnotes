@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - develop
+    paths:
+      - '.github/release-request.txt'
 
 permissions:
   contents: read
@@ -15,12 +19,17 @@ jobs:
       version: ${{ steps.normalize.outputs.version }}
       tag: ${{ steps.normalize.outputs.tag }}
     steps:
+      - uses: actions/checkout@v4
+
       - name: Validate and normalize release tag
         id: normalize
         shell: bash
         env:
-          RAW_TAG: ${{ github.ref_name }}
+          RAW_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
+          if [[ -z "$RAW_TAG" ]]; then
+            RAW_TAG="$(tr -d '[:space:]' < .github/release-request.txt)"
+          fi
           if [[ ! "$RAW_TAG" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
             echo "Unsupported release tag: $RAW_TAG" >&2
             exit 1
