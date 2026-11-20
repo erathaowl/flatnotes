@@ -3,7 +3,7 @@
 flatnotes exposes OpenAPI documentation at `/docs` and the schema at
 `/openapi.json`. Prefixes follow `FLATNOTES_PATH_PREFIX` when configured.
 This page explains the note, publishing and encrypted-byte routes used by
-the 6.3.0 frontend. See the generated schema for exact response models.
+the 6.4.0 frontend. See the generated schema for exact response models.
 
 ## Authentication
 
@@ -111,46 +111,37 @@ No endpoint requests or accepts the note's encryption password.
 Encrypted publications support **random** and **custom** slugs only.
 The `title` slug mode is rejected to avoid disclosing the title.
 
-## Client-side settings on unsaved notes
+## Sharing expiration API
 
-The Share and Expiration dialogs can be used before a new note
-has been saved. These changes remain in client-side state
-until the first **Save** of the note, when creation applies
-the selected expiration and attempts the publication afterward.
-If creating the public link fails, the note remains saved.
+Sharing expiration is configured through publication endpoints, using the same payload for ordinary and encrypted shares.
 
-For existing notes, saving the modals calls the corresponding
-API immediately. The backend has no separate draft-storage API.
-
-## Expiration API
-
-| Method | Route | Purpose |
+| Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/expiring-notes` | List active notes with expiration metadata |
-| GET/PUT | `/api/notes/{title}/expiration` | Read or configure an ordinary note's policy |
-| GET/PUT | `/api/encrypted-notes/{id}/expiration` | Read or configure a protected note's policy |
-| POST | `/api/encrypted-notes/{id}/view` | Claim an encrypted single view after successful browser unlock |
-| POST | `/api/public/encrypted-notes/{slug}/view` | Claim a published encrypted single view |
+| GET/PUT | `/api/notes/{title}/publication` | Read/create/update Markdown share and expiration |
+| DELETE | `/api/notes/{title}/publication` | Unpublish while preserving the original note |
+| GET/PUT | `/api/encrypted-notes/{id}/publication` | Read/create/update encrypted share and expiration |
+| DELETE | `/api/encrypted-notes/{id}/publication` | Unpublish while preserving the encrypted note |
+| POST | `/api/public/encrypted-notes/{slug}/view` | Claim a public encrypted single view |
 
-Set an expiration policy with JSON `{"policy":"7d"}`,
-`{"policy":"once"}` or `{"policy":"none"}`.
-For protected single-view notes, the request also carries the
-browser-generated `verifier` (64 hex characters, SHA-256 digest
-of the unlock proof).
+The PUT payload accepts `expiration`: `none` (default), `once`, positive `Nh` or `Nd`, and `autoDeleteNote` (default false). A single-view publication must be read-only. Auto-delete is valid only with a configured expiration.
 
-Creating an ordinary note accepts the optional `expiration`
-field in its POST body. Creating a protected note accepts
-`X-Expiration` and, when `once`, `X-View-Verifier`.
-The claim endpoint accepts `{"proof":"<64-hex>"}` after local
-decryption, with no password or plaintext in its payload.
+```json
+{
+  "slugMode": "random",
+  "permission": "read",
+  "expiration": "7d",
+  "autoDeleteNote": false
+}
+```
 
-The first ordinary one-view content request also returns
-`viewToken`; allowlisted published attachments can load for up
-to 180 seconds using `?view_token=...`. The token cannot
-grant a second note-content read. HTTP 410 indicates that
-a note expired or its single view was consumed.
+For an encrypted `once` share, an additional `viewVerifier` is required: the SHA-256 digest of the browser-generated unlock proof. The public claim submits `{"proof":"<64-hex>"}` after local decryption.
 
-Full behavior: [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+Publication responses include `expiration`, `expiresAt` (UTC Unix timestamp), `autoDeleteNote` and `expired`. A publication may return 410 immediately after expiry, then 404 when its metadata has been cleaned up.
+
+The owner's authenticated `GET /api/notes/{title}` and `GET /api/encrypted-notes/{id}` do not consume or check the public-link expiration. Notes remain privately searchable and editable until explicitly deleted or auto-deleted.
+
+The Share dialog stages new-note settings in the browser until the first successful note Save. The first note is created without an expiration policy; its publication is saved afterward. The former note-level expiration endpoints have been removed in 6.4.0.
+
 
 ## Feature flags and errors
 

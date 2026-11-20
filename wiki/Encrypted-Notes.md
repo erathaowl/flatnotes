@@ -54,49 +54,20 @@ Delete icon and confirm. The encrypted file and publication record
 are removed by the account-authorized operation. The encryption
 password is not needed to delete ciphertext.
 
-## Expiration and single-view encrypted notes
+## Public-link expiration and single-view encrypted sharing
 
-Encrypted notes support the same expiration policies as ordinary
-notes when the feature is enabled. The selector appears during
-creation, and unlocked notes can change their policy from the
-**Expiration** action.
+Encrypted notes support public-link expiration through **Share**. Its Expiration selector offers Never, hours, days and Single view (read-only). Auto-delete is unchecked by default. When selected, the original encrypted note is deleted when the public link expires; otherwise it survives privately.
 
-For single-view notes, the browser verifies the password and
-decrypts the envelope locally before submitting a separate HMAC
-unlock proof. The server stores only the proof verifier hash,
-atomically consumes the view and grants display. The password
-and plaintext never reach the server.
+For a single-view encrypted link, the browser first authenticates and decrypts ciphertext. Then it submits an independent unlock proof, derived from the note's key material, to the public claim endpoint. SQLite grants only the first successful public claim. Private unlocking via `/e/{id}` does not consume a view.
 
-After consumption, a subsequent view returns HTTP 410.
-A downloaded encrypted file can still be retained and
-decrypted offline with the password; single view is a
-server-enforced access limit.
+The server never receives plaintext, the protection password or the data key. A downloaded encrypted file may be retained and decrypted offline by a recipient who knows the password.
 
-Full details: [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+### Shared editor and pre-save sharing
 
-## Shared editor and settings before the first save
+Both encrypted and ordinary notes use the same toolbar and Edit toggle. Share can stage publication settings on an unsaved encrypted note. The first Save creates ciphertext; afterward the client attempts to create the public link and its expiration. A failure to publish does not discard the encrypted note.
 
-Once the protection password has been entered, the encrypted
-editor uses the same title field, **Edit** toggle and action
-toolbar as the ordinary editor. Both **Share** and **Expiration**
-are usable before the note exists on the server.
+The standalone Expiration action and separate modal have been removed. See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
 
-Before the first save, their modal dialogs store the chosen
-settings only in the browser. Saving the encrypted note first creates the ciphertext file and
-expiration rule, and then attempts to apply any pending publication.
-The **Share** dialog uses Apply to stage the choice; Expiration uses
-Save to stage the policy. Neither contacts the note API before the
-first note Save. This prevents configuring
-expiration against a nonexistent note. A failed publication
-does not discard a note already encrypted and saved.
-
-**Share** and **Expiration** are displayed with primary
-foreground text color when active; otherwise their icon and
-label remain muted. Delete is red. Lock asks for confirmation
-before abandoning unsaved edits.
-
-The ordinary editor can protect new notes or currently unsaved
-changes without an intermediate plaintext network request.
 
 ## Password requirements
 
@@ -235,7 +206,7 @@ localStorage or sessionStorage.
 
 - **Password recovery:** not available. Deleting a note without its
   password is possible, but decrypting it is not.
-- **Change password:** not implemented in 6.3.0.
+- **Change password:** not implemented in 6.4.0.
 - **Remove protection:** not implemented; exporting unlocked Markdown
   produces a local plaintext copy instead.
 - **Password policy:** affects newly created protection passwords,

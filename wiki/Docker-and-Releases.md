@@ -2,15 +2,15 @@
 
 ## Python wheel
 
-Download the `flatnotes-6.3.0-py3-none-any.whl` asset from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0).
+Download the `flatnotes-6.4.0-py3-none-any.whl` asset from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0).
 It includes the FastAPI backend and compiled Vue frontend. Installation requires
 Python 3.13, but neither Node.js nor Docker:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.3.0-py3-none-any.whl
+pip install flatnotes-6.4.0-py3-none-any.whl
 export FLATNOTES_PATH="/var/lib/flatnotes"
 export FLATNOTES_AUTH_TYPE="password"
 export FLATNOTES_USERNAME="admin"
@@ -32,8 +32,6 @@ Add these variables to the Docker Compose service:
 environment:
   FLATNOTES_ENCRYPTION_ENABLED: "true"
   FLATNOTES_SHARING_ENABLED: "true"
-  FLATNOTES_EXPIRATION_ENABLED: "false"
-  FLATNOTES_EXPIRATION_DEFAULT: "none"
   FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "12"
   FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "0"
 ```
@@ -59,7 +57,7 @@ The `master` tag is updated after pushes to the primary branch. Tagged Git relea
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.3.0
+    image: ghcr.io/erathaowl/flatnotes:v6.4.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -74,8 +72,6 @@ services:
       FLATNOTES_SHARING_ENABLED: "true"
       FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "12"
       FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "0"
-      FLATNOTES_EXPIRATION_ENABLED: "false"
-      FLATNOTES_EXPIRATION_DEFAULT: "none"
     volumes:
       - ./data:/data
     restart: unless-stopped
@@ -101,7 +97,7 @@ docker run -d --name flatnotes \
   -e FLATNOTES_SECRET_KEY="$FLATNOTES_SECRET_KEY" \
   -v "$(pwd)/data:/data" \
   --restart unless-stopped \
-  ghcr.io/erathaowl/flatnotes:v6.3.0
+  ghcr.io/erathaowl/flatnotes:v6.4.0
 ```
 
 ## CI/CD
@@ -122,11 +118,12 @@ See [GitHub Actions](https://github.com/erathaowl/flatnotes/actions), [GHCR imag
 
 ## Editor behavior
 
-The current application uses a shared toolbar for ordinary and
-encrypted notes. Share and Expiration are available in modal dialogs
-before the first save; their options are staged locally until the
-note exists. Protect can encrypt a new or modified ordinary draft
-without storing an intermediate plaintext note on the server.
+The application uses a shared toolbar for ordinary and encrypted notes.
+Expiration and optional automatic deletion are configured inside the
+**Share** modal, available before the first note save. The settings
+are staged locally until the note exists. Protect can encrypt an
+unsaved ordinary draft without intermediate plaintext storage.
+See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
 
 Production deployments should pin the released Docker image
 instead of using `:master`. The wheel and application archive

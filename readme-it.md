@@ -34,17 +34,17 @@ Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, per
 
 ## Installazione tramite wheel Python
 
-Le release includono anche il file `flatnotes-6.3.0-py3-none-any.whl`,
+Le release includono anche il file `flatnotes-6.4.0-py3-none-any.whl`,
 contenente **backend FastAPI, frontend Vue già compilato e comando `flatnotes`**.
 Sul server è sufficiente **Python 3.13**, senza bisogno di Node.js o Docker.
 
-Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0),
+Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0),
 poi esegui:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.3.0-py3-none-any.whl
+pip install flatnotes-6.4.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -72,7 +72,7 @@ Crea un file `compose.yaml`:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.3.0
+    image: ghcr.io/erathaowl/flatnotes:v6.4.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -98,7 +98,7 @@ Prepara un file `.env` contenente `FLATNOTES_PASSWORD` e `FLATNOTES_SECRET_KEY`,
 docker compose up -d
 ```
 
-Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.3.0`; `:latest` indica l'ultima release pubblicata, mentre `:master` è destinato ai test dei commit più recenti del branch principale.
+Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.4.0`; `:latest` indica l'ultima release pubblicata, mentre `:master` è destinato ai test dei commit più recenti del branch principale.
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
@@ -169,62 +169,28 @@ compromesso potrebbe distribuire codice client dannoso.
 
 Approfondimenti: [Encrypted Notes](wiki/Encrypted-Notes.md).
 
-## Scadenza opzionale delle note
+## Scadenza delle condivisioni ed eliminazione automatica
 
-Imposta `FLATNOTES_EXPIRATION_ENABLED=true` per attivare la scadenza
-delle note normali e cifrate. Con `FLATNOTES_EXPIRATION_DEFAULT`
-(default `none`) scegli il valore predefinito per le nuove note.
-Ogni nota può avere una regola diversa.
+La scadenza si imposta **solo nel modale Share**, sia per le note normali sia per quelle cifrate. Riguarda il link pubblico e non limita l'accesso privato del proprietario.
 
-```yaml
-environment:
-  FLATNOTES_EXPIRATION_ENABLED: "true"
-  FLATNOTES_EXPIRATION_DEFAULT: "7d"
-```
+- **Never** (predefinito): nessuna scadenza.
+- **After N hours / After N days**: il link scade dopo il periodo scelto.
+- **Single view**: la prima visualizzazione pubblica consuma il link, soltanto per condivisioni in lettura.
 
-Le modalità disponibili sono **Nessuna**, **Dopo N ore**,
-**Dopo N giorni** e **Singola visualizzazione** (`once`).
-Gli intervalli si calcolano dal primo salvataggio oppure dall'ultima
-modifica della regola, mentre cambiare il contenuto non rinnova
-automaticamente la scadenza.
+Il flag **Automatically delete this note when the share expires** è **deselezionato per impostazione predefinita** e compare quando è configurata una scadenza. Se attivato, il server elimina anche la nota originale; altrimenti scade soltanto il link. Il comando **Unpublish** conserva sempre la nota.
 
-La pagina `/expiring`, accessibile dal menu, elenca le note con
-scadenza attiva. Una nota a singola visualizzazione viene consumata
-anche se è il proprietario ad aprirla. Le note normali a visualizzazione
-singola non appaiono nella ricerca completa.
+L'apertura privata non consuma mai la singola visualizzazione pubblica. Le note Markdown restano disponibili nella ricerca. Nel caso cifrato, la password rimane nel browser, che invia al server soltanto una prova crittografica dopo la decifratura. I file cifrati già scaricati possono comunque essere conservati.
 
-Per una nota cifrata il browser decifra con la password e invia al server
-soltanto una prova crittografica distinta dalle chiavi. Il server
-autorizza atomicamente un'unica visualizzazione. Il contenuto cifrato
-già scaricato potrebbe comunque essere conservato e decifrato offline.
+**Non esistono più variabili d'ambiente per scadenza e valore predefinito.** Ogni nuova condivisione nasce senza scadenza e con l'eliminazione automatica disattivata.
 
-Disabilitare il master switch impedisce nuove configurazioni ma
-**non sospende le scadenze già esistenti**. La cancellazione dei file
-attivi non elimina automaticamente backup, snapshot o copie scaricate.
+**Aggiornamento dalla 6.3.0:** le scadenze delle note condivise passano ai link, mantenendo il termine e la precedente politica di eliminazione. Le scadenze delle note private non condivise vengono rimosse, preservando le note. Esegui prima il backup del database SQLite.
 
-Guida: [Expiring Notes](wiki/Expiring-Notes.md).
+Guida dettagliata: [Publishing Notes](wiki/Publishing-Notes.md).
 
-### Interfaccia di modifica unificata
+### Interfaccia unificata
 
-Le note ordinarie e cifrate condividono il campo titolo e la barra dei
-comandi, con **Edit** a interruttore. I pulsanti **Share** ed **Expiration** mostrano icona e testo bianchi
-nel tema scuro quando sono configurati, con il colore principale nel
-tema chiaro; rimangono attenuati quando sono disattivati.
-**Delete** è rosso. Il pulsante **Lock** è presente per le note cifrate.
+Le note Markdown e cifrate condividono campo titolo, barra comandi e interruttore **Edit**. **Share** è evidenziato quando la condivisione è attiva, attenuato quando è privata o scaduta; **Delete** è rosso. Il modale Share è utilizzabile prima del primo Save, configurando anche scadenza ed eliminazione automatica. Le impostazioni vengono applicate dopo il salvataggio della nota; un errore di pubblicazione non cancella il contenuto. **Protect** può cifrare direttamente una bozza non salvata.
 
-Per una nota ancora da salvare, **Share** ed **Expiration** aprono gli
-stessi modali previsti per le note esistenti. **Apply** nella finestra
-Share e **Save** nella finestra Expiration preparano le scelte nel browser.
-Solo il primo **Save** della nota salva il contenuto e la scadenza
-e successivamente prova ad attivare l'eventuale condivisione.
-Se la pubblicazione fallisce, la nota rimane salvata; puoi riprovare
-aprendo Share. Per le note già esistenti, invece, le modifiche nei
-due modali hanno effetto immediato.
-
-**Protect** permette anche di cifrare direttamente una nota normale
-nuova o con modifiche non salvate, senza un salvataggio intermedio
-in chiaro sul server. Per le note cifrate, Lock richiede conferma
-prima di abbandonare modifiche non salvate.
 
 ## Pubblicazione delle note
 

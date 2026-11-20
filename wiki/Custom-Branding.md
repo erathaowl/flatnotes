@@ -33,7 +33,7 @@ With a persistent volume at `./data:/data`, store the files in `./data/branding/
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.3.0
+    image: ghcr.io/erathaowl/flatnotes:v6.4.0
     environment:
       FLATNOTES_SITE_TITLE: "My Notes"
       FLATNOTES_LOGO_PATH: "/data/branding/logo.svg"

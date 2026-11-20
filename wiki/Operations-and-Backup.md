@@ -2,14 +2,14 @@
 
 ## Deployment options
 
-flatnotes 6.3.0 ships with three deployment artifacts:
+flatnotes 6.4.0 ships with three deployment artifacts:
 
-- GHCR images `ghcr.io/erathaowl/flatnotes:v6.3.0` and `:latest`;
+- GHCR images `ghcr.io/erathaowl/flatnotes:v6.4.0` and `:latest`;
   `:master` tracks the development branch.
 - An installable Python 3.13 wheel,
-  `flatnotes-6.3.0-py3-none-any.whl`, including the FastAPI
+  `flatnotes-6.4.0-py3-none-any.whl`, including the FastAPI
   backend, compiled Vue frontend and `flatnotes` CLI.
-- `flatnotes-6.3.0.tar.gz`, an application archive with Python
+- `flatnotes-6.4.0.tar.gz`, an application archive with Python
   backend sources and compiled frontend files.
 
 A production deployment needs a writable data directory, application
@@ -58,7 +58,7 @@ docker compose up -d flatnotes
 docker compose logs --tail=100 flatnotes
 ```
 
-Use a pinned tag `v6.3.0` for reproducible deployments. The
+Use a pinned tag `v6.4.0` for reproducible deployments. The
 `:master` tag is for testing and changes with each successful
 development build.
 
@@ -84,7 +84,7 @@ restart the service:
 ```bash
 python3.13 -m venv .venv
 . .venv/bin/activate
-pip install --upgrade ./flatnotes-6.3.0-py3-none-any.whl
+pip install --upgrade ./flatnotes-6.4.0-py3-none-any.whl
 flatnotes --host 127.0.0.1 --port 8080
 ```
 
@@ -132,29 +132,20 @@ from browser drafts, backups or storage snapshots.
 
 Test on a disposable note before migrating confidential material.
 
-## Expiration cleanup and recovery
+## Public-link expiration, migration and backup safety
 
-When `FLATNOTES_EXPIRATION_ENABLED=true`, notes can be configured
-to expire after hours, days or one authorized view. Previously
-configured rules remain enforced even if the switch is turned off.
-SQLite stores the rules in `note_expirations`, inside
-`.flatnotes-publications.db`. The `note_view_sessions`
-table retains short-lived attachment tokens for consumed
-ordinary notes.
+Expiration is stored with individual publications in `.flatnotes-publications.db`. Public links are checked immediately on access, and a background cleanup pass runs at startup and approximately every 60 seconds. Expired or consumed links are revoked. The original note is removed only when its publication has `auto_delete_note=1`.
 
-The server checks policies synchronously on API access.
-At startup and about every 60 seconds, a cleanup pass
-deletes terminal note files, revokes publications, updates
-the search index and conservatively removes orphaned
-ordinary attachments. Terminal metadata is retained to
-distinguish consumed or expired notes.
+For ordinary Markdown, cleanup preserves attachments that remain referenced by other notes. For public single-view Markdown, it waits for the short-lived attachment session to expire before deleting the note. Encrypted attachments remain inside the encrypted file.
 
-For safe backups, stop the service or take a consistent
-SQLite snapshot. Expiration is not secure erasure of old
-backups, snapshots, previously downloaded content or
-filesystem blocks. Apply backup retention independently.
+### Upgrading from 6.3.0
 
-See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+Back up the entire data directory, especially `.flatnotes-publications.db`, `*.md`, `*.md.enc` and `attachments/`, before upgrading.
+
+The startup transaction migrates active note-level rules for published notes to the corresponding publication records and retains their original deadlines and auto-deletion behavior. Active note-level rules on unpublished private notes are dropped, preserving those notes. Old consumed/expired records with pending deletion are finished by cleanup. After migration the obsolete note-level tables are removed. Restoring a pre-migration backup is required to downgrade to 6.3.0.
+
+Manually unpublishing never triggers auto-deletion. Expiry and auto-deletion do not securely erase historic backups, cloud snapshots, or downloaded content.
+
 
 ## Monitoring and troubleshooting
 

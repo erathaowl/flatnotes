@@ -14,7 +14,6 @@ for file in \
   "flatnotes/readme-it.md" \
   "flatnotes/wiki/Home.md" \
   "flatnotes/wiki/Encrypted-Notes.md" \
-  "flatnotes/wiki/Expiring-Notes.md" \
   "flatnotes/wiki/API-Reference.md" \
   "flatnotes/wiki/Security-and-Cryptography.md" \
   "flatnotes/wiki/Operations-and-Backup.md"; do

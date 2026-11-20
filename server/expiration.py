@@ -141,6 +141,10 @@ class ExpirationStore:
         old_sessions = db.execute(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='note_view_sessions'"
         ).fetchone()
+        has_purged = any(
+            column["name"] == "purged_at"
+            for column in db.execute("PRAGMA table_info(note_expirations)")
+        )
         migrated = 0
         discarded = 0
         pending = 0
@@ -151,10 +155,12 @@ class ExpirationStore:
             published = db.execute(
                 f"SELECT * FROM {table} WHERE {column}=?", (note_id,)
             ).fetchone()
-            terminal = row["status"] != "active" or (
-                row["expires_at"] is not None and row["expires_at"] <= int(time.time())
-            )
-            if published and row["purged_at"] is None:
+            # An active private legacy rule is discarded even if its deadline
+            # passed while the application was stopped. Only terminal rules
+            # already recorded by 6.3 may still trigger pending deletion.
+            terminal = row["status"] != "active"
+            purged_at = row["purged_at"] if has_purged else None
+            if published and purged_at is None:
                 # Legacy note expiry deleted the underlying file; retain that
                 # behavior for migrated published links only.
                 db.execute(
@@ -177,7 +183,7 @@ class ExpirationStore:
                             (session["token_hash"], published["slug"], session["expires_at"]),
                         )
                 migrated += 1
-            elif terminal and row["purged_at"] is None:
+            elif terminal and purged_at is None:
                 delay = 0
                 if old_sessions:
                     session = db.execute(

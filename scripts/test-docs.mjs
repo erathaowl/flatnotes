@@ -59,7 +59,6 @@ for (const name of [
   "FLATNOTES_ENCRYPTION_ENABLED", "FLATNOTES_SHARING_ENABLED",
   "FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH",
   "FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES",
-  "FLATNOTES_EXPIRATION_ENABLED", "FLATNOTES_EXPIRATION_DEFAULT",
 ]) {
   assert.ok(env.includes(name), "Undocumented configuration: " + name);
 }
@@ -68,9 +67,14 @@ for (const file of ["wiki/Notes-and-Editor.md", "wiki/Encrypted-Notes.md", "wiki
     /save it first, leave edit mode|unsaved draft must be handled before protection/i,
     "Outdated Protect instructions in " + file);
 }
-assert.match(read("wiki/Expiring-Notes.md"), /no inline selector/i);
+assert.match(read("wiki/Publishing-Notes.md"), /Automatically delete this note when the share expires/i);
 assert.match(read("wiki/Notes-and-Editor.md"), /unsaved/i);
-assert.match(read("wiki/Publishing-Notes.md"), /first \*\*Save\*\*/);
+assert.match(read("wiki/Publishing-Notes.md"), /first .*Save|note.*Save/i);
+assert.equal(existsSync("wiki/Expiring-Notes.md"), false);
+for (const file of docs) {
+  assert.doesNotMatch(read(file), /FLATNOTES_EXPIRATION_ENABLED|FLATNOTES_EXPIRATION_DEFAULT/);
+  assert.doesNotMatch(read(file), /\/api\/expiring-notes|\/expiring\b/);
+}
 
 // Keep workflow triggers and links aligned with the canonical branch.
 const workflows = [

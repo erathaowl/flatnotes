@@ -1,10 +1,9 @@
-**flatnotes v6.3.0**
+**flatnotes v6.4.0**
 
 - [Home](https://github.com/erathaowl/flatnotes/wiki/Home)
 - [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)
 - [Environment Variables](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables)
 - [Notes and Editor](https://github.com/erathaowl/flatnotes/wiki/Notes-and-Editor)
-- [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes)
 - [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes)
 - [Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography)
 - [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes)

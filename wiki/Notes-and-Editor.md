@@ -22,27 +22,14 @@ Private routes require normal application authentication in
 
 ## Shared note header and controls
 
-Both note types use the same responsive title field and toolbar,
-with the **Edit** toggle available both before and after the first
-save. **Share** and **Expiration** use primary foreground color
-when configured and muted text when not configured. **Delete** uses
-the red danger style.
+Both note types use the same responsive title field and **Edit** toggle. The **Share** button opens one modal containing public access, URL, expiration and optional auto-delete settings. Its icon and label are bright for an active publication and muted for a private or expired link. **Delete** is red. A protected note also exposes **Lock**, which confirms before discarding unsaved edits.
 
-On a newly created note, Share and Expiration are already available
-through their modal dialogs. Choices are staged in the browser
-and applied when the note is first saved. A new encrypted note
-does not exist on the server before the first save, so expiration
-configuration never contacts an unavailable note endpoint.
+For a new note, Share stages settings locally. Saving the note creates it first and then attempts to publish the configured link. A failed publication leaves the saved note intact. On a saved note, updating Share applies immediately.
 
-The ordinary editor exposes **Protect** even for a new or unsaved
-draft: it encrypts the current editor content locally without
-uploading it in plaintext. The protected editor exposes **Lock**,
-including a confirmation when editing changes would be discarded.
-After a successful Save, both editor types return to view mode.
-Share and Expiration are modal controls in both states.
+**Protect** can encrypt a newly created ordinary draft or unsaved edits directly in the browser, without an intermediate plaintext upload. Its existing source publication is revoked when converting a saved Markdown note.
 
-See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes)
-and [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
+See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
+
 
 ## Ordinary Markdown notes
 
@@ -102,26 +89,12 @@ The password cannot be recovered. Automatic **Remove protection** is not
 implemented because writing a plaintext `.md` file on the server would
 contradict the ciphertext-only requirement.
 
-## Expiration controls
+## Expiring public links
 
-When `FLATNOTES_EXPIRATION_ENABLED=true`, new ordinary and encrypted
-notes show an **Expiration** button in their toolbar. This opens the
-same modal as for existing notes; no inline selector appears.
-The draft policy is applied when the note is first saved.
-For saved notes, the modal updates the server immediately. Available choices are never,
-a positive number of hours, a positive number of days or
-single view.
+Expiration is available exclusively inside **Share**, with Never, hours, days and read-only Single view modes. Owner access and search are unaffected by public-link expiration. The original note is deleted only if the user explicitly selects **Automatically delete this note when the share expires**.
 
-The main Menu includes **Expiring Notes**, opening `/expiring`.
-This page lists active timed notes and single-view notes; encrypted
-notes remain identified by their opaque IDs.
+The former standalone Expiration button, per-note expiration API and expired-notes page are removed. See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
 
-A timed note expires without resetting its timer on content edits.
-A single-view note is consumed by the first content opening,
-including the owner. Plaintext single-view notes are intentionally
-excluded from full-text search.
-
-See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
 
 ## Search, tags and links
 

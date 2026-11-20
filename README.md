@@ -41,13 +41,13 @@ Release assets include a standalone Python wheel containing the FastAPI backend,
 the complete compiled Vue frontend, and the `flatnotes` command-line launcher.
 The target machine needs **Python 3.13**, but **does not need Node.js**.
 
-Download `flatnotes-6.3.0-py3-none-any.whl` from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0), then run:
+Download `flatnotes-6.4.0-py3-none-any.whl` from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0), then run:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.3.0-py3-none-any.whl
+pip install flatnotes-6.4.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -80,7 +80,7 @@ Create a `compose.yaml` file:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.3.0
+    image: ghcr.io/erathaowl/flatnotes:v6.4.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -106,7 +106,7 @@ Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, usin
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.3.0` release. Use `:latest` for the latest published release or `:master` only when testing the latest commits on the primary branch.
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.4.0` release. Use `:latest` for the latest published release or `:master` only when testing the latest commits on the primary branch.
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
@@ -181,70 +181,30 @@ browser's security boundary.
 Read the [Encrypted Notes](wiki/Encrypted-Notes.md) guide for the file
 format, threat model, permissions, and backup details.
 
-## Optional expiration for individual notes
+## Share expiration and automatic deletion
 
-Enable note expiration with `FLATNOTES_EXPIRATION_ENABLED=true`. New notes
-inherit `FLATNOTES_EXPIRATION_DEFAULT` (default `none`), and each
-note can override the policy. Available modes are **Never**, **After N
-hours**, **After N days** and **Single view**.
+Expiration is a **public-link setting** inside the **Share** modal. It never restricts the owner's private access to a note.
 
-```yaml
-environment:
-  FLATNOTES_EXPIRATION_ENABLED: "true"
-  FLATNOTES_EXPIRATION_DEFAULT: "7d"
-```
+- **Never** (default): the public link remains active until revoked.
+- **After N hours** or **After N days**: the public link expires after the chosen duration.
+- **Single view**: only the first public opening succeeds, for read-only shares.
 
-Ordinary and protected notes support these policies. Timers start on first
-save or when an existing note's policy is changed. Subsequent edits do not
-extend the deadline. Single-view notes are consumed on the first authorized
-opening, including the owner's own opening.
+The checkbox **Automatically delete this note when the share expires** is unchecked by default. It appears when an expiration is configured. Selecting it permanently deletes the original note after expiration; leaving it unchecked revokes only the public link. **Unpublish** always retains the note.
 
-Open `/expiring` from the Menu to find time-limited and single-view
-notes. Ordinary single-view notes are excluded from full-text search, and
-protected titles remain encrypted.
+There is no expiration master switch or default environment variable. New shares use `expiration: none` and `autoDeleteNote: false`. A private note is always accessible to its owner and remains searchable. Private access never consumes a public single-view link.
 
-Encrypted single-view notes require successful browser decryption followed
-by a one-time proof submitted to the server. Passwords, plaintext and
-decryption keys remain in the browser. Already downloaded ciphertext can be
-retained for offline decryption, so single-view enforcement is limited to
-flatnotes access.
+For encrypted one-view shares, successful browser-only decryption is followed by a distinct HMAC unlock proof; only the first server claim succeeds. Already downloaded ciphertext can still be retained and decrypted offline. Expired links are rejected immediately; the cleanup worker later removes the publication and optionally deletes the original. Editing the note does not restart the timer. Renewing an expired link requires a new URL.
 
-Disabling the feature prevents creating or changing expiration policies
-while **preserving enforcement of existing deadlines**. Expired notes and
-their publications are removed during periodic cleanup. Historical backups,
-downloads and filesystem snapshots are not automatically erased.
+**Upgrading from 6.3.0:** active expiration policies on published notes migrate to the corresponding links, retaining deadlines and legacy auto-deletion behavior. Active policies on private notes are removed while preserving the notes. Back up the SQLite publication database before upgrading.
 
-See [Expiring Notes](wiki/Expiring-Notes.md) for the complete behavior.
+See [Publishing Notes](wiki/Publishing-Notes.md).
 
 ### Unified note toolbar
 
-Ordinary and protected notes now use the same responsive title field and
-action toolbar, including an **Edit** toggle. **Share** and **Expiration**
-have the normal foreground text color when configured and a muted
-appearance when inactive. **Delete** is red. Both edit and view mode
-retain the available actions.
+Ordinary and protected notes use the same responsive title, **Edit** toggle and toolbar. **Share** is bright while a public link is active and muted when private or expired. **Delete** is red; protected notes also offer **Lock**.
 
-On a **new note**, Share and Expiration use the same dialogs as saved notes.
-Use **Apply** in Share or **Save** in Expiration to stage settings locally.
-The first note **Save** writes the note and its expiration policy, then
-attempts to activate any selected public link. A publication failure
-leaves the saved note intact; reopen Share to retry. Before the first
-Save, no server-side publication or expiration update is attempted.
+On a new note, Share stages access, expiration and optional auto-delete until the first successful note Save. Publishing takes place after saving the note, and publication errors never remove the saved content. For saved notes, changing Share applies immediately. **Protect** encrypts unsaved ordinary drafts and edits directly in the browser.
 
-For an **existing note**, saving a change in either dialog takes effect
-immediately. The white (dark theme) or primary-colored (light theme)
-icon **and label** mark a configured Share/Expiration action; inactive
-ones use muted text. A red **Delete** action and an **Edit** toggle
-appear in the unified toolbar. **Lock** is available on protected
-notes and asks before discarding unsaved edits.
-
-New ordinary notes can also be protected directly with **Protect** while
-editing, without sending an intermediate plaintext draft to the server.
-
-On an existing ordinary note, Protect can also use currently unsaved
-editor content, encrypting it directly during conversion. For protected
-notes, **Lock** prompts before discarding unsaved edits. The title
-occupies its own row on mobile screens.
 
 ## Publish a note
 

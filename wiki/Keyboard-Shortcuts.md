@@ -28,8 +28,9 @@ These private navigation shortcuts do not operate on public note pages or the lo
 
 On an anonymously editable shared note, use `Ctrl+Enter` / `Cmd+Enter` to save content changes. The public editor cannot rename, delete, or publish notes.
 
-Both editors use an **Edit** toggle, with Share and Expiration
-available through modals before the first save. On protected
+Both editors use an **Edit** toggle. Expiration and automatic
+deletion are configured inside **Share**, including before
+the first Save. On protected
 notes, **Ctrl+Enter** or **Cmd+Enter** saves current edits.
 Use the Edit toggle or **Cancel** to leave encrypted-note editing;
 the ordinary-note Escape shortcut does not automatically apply.

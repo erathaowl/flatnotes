@@ -1,18 +1,18 @@
 # Troubleshooting
 
-Use this checklist for flatnotes 6.3.0. Avoid sharing passwords,
+Use this checklist for flatnotes 6.4.0. Avoid sharing passwords,
 authenticated tokens, or decrypted note contents when reporting bugs.
 
 ## Refreshing `/encrypted` shows JSON 404
 
 The application uses Vue history-mode routes and needs FastAPI (or
 your reverse proxy) to serve the frontend shell for direct navigation.
-The backend in 6.3.0 registers `/encrypted` as a page URL.
+The backend in 6.4.0 registers `/encrypted` as a page URL.
 
 If you still receive `{"detail":"Not Found"}`, verify that your
 container really runs the updated image and that the reverse proxy
 is forwarding the route to flatnotes, rather than to another app.
-`:master` and `:v6.3.0` are separate image tags.
+`:master` and `:v6.4.0` are separate image tags.
 
 ## Encryption does not work from a phone
 
@@ -65,17 +65,12 @@ protection password through its save API.
 Old plaintext data may remain in backups or snapshots even after a
 successful conversion.
 
-## New note: Share or Expiration settings appear unchanged
+## New note: Share or expiration settings do not appear immediately
 
-For a new ordinary or encrypted note, both buttons open a modal.
-**Apply** in Share and **Save** in Expiration stage changes locally.
-The note must then be saved with its own **Save** button.
-A new encrypted note does not exist on the server before that save,
-so the expiration modal makes no API request until then.
+For a new ordinary or encrypted note, the Share modal stages its access level, URL, expiration and auto-delete settings locally using **Apply**. Save the **note itself** to create the publication and start the timer. A publication failure leaves the note intact; reopen Share to retry.
 
-If saving the note succeeds but creating the public link fails,
-the note remains stored. Open Share and retry. The active-state
-button reflects whether the publication succeeded.
+Existing notes apply Share changes when you click Save. The former standalone Expiration modal and expired-notes page have been removed.
+
 
 ## Public sharing stopped working
 
@@ -99,26 +94,16 @@ The minimum character-category value is 0–4, and the minimum
 length is 0–1024. A value of 0 disables the corresponding policy
 check, though the user still must enter a nonempty password.
 
-## Expiring notes and HTTP 410
+## Public links and HTTP 410
 
-HTTP 410 Gone indicates that a timed note expired or a
-single-view note was already consumed. The server will reject
-all further content requests even if the file has not yet
-been removed by the periodic cleanup.
+HTTP 410 on a public link indicates its time limit expired or its single public view was consumed. Cleanup later removes the publication; the link may then return HTTP 404. The original note remains accessible privately unless **Automatically delete this note when the share expires** was selected.
 
-The first opening of an ordinary one-view note, including
-by its owner, consumes the view. For protected one-view notes,
-a correct password is needed to generate the browser proof
-before the server consumes it. An incorrect password does not
-consume the view.
+Opening the private note does not consume its public link. The first public single-view Markdown response includes an attachment token valid for up to 180 seconds. Encrypted single-view links require successful browser decryption followed by a valid unlock proof.
 
-If a note no longer appears in global search, check
-`/expiring`: ordinary single-view notes are intentionally
-excluded from Whoosh. If policies are no longer editable,
-check `FLATNOTES_EXPIRATION_ENABLED`; disabling this
-switch does not cancel previously configured expirations.
+No expiration-specific environment variables are required. Configure expiration from Share. A failed publication can be retried without deleting the saved note.
 
-See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
+
 
 ## TOTP login fails
 

@@ -1,7 +1,7 @@
 # Security Model and Cryptography
 
 This document describes the implemented security boundary for protected
-notes in flatnotes 6.3.0. It is a technical design reference, not a formal
+notes in flatnotes 6.4.0. It is a technical design reference, not a formal
 third-party security audit.
 
 ## Trust boundary
@@ -118,26 +118,16 @@ public slug, opaque note ID and read/edit permission. A random slug is
 recommended; custom slugs can be guessed. Using the encrypted title as
 a public slug is deliberately unsupported.
 
-## Expiration and single-view security
+## Public-link expiration and single-view security
 
-The optional expiration service stores deadlines, terminal
-status and a verifier for single-view encrypted notes in SQLite.
-The verifier is the SHA-256 digest of a browser-generated
-HMAC-SHA256 proof derived with explicit domain separation
-from the password-based key material.
+Expiration belongs to the **publication**, not the note. Private owner access and search cannot consume a link or change its deadline. Public reads enforce expiration server-side.
 
-The server receives only this separate proof when the browser
-successfully decrypts a single-view encrypted note. It
-atomically accepts the first claim and rejects subsequent
-claims. It does not receive the password, raw encryption keys
-or note plaintext.
+For a public encrypted single-view link, the browser downloads ciphertext, derives its Argon2id key, authenticates the AES-GCM payload, and sends an independent domain-separated HMAC proof. Only the proof's SHA-256 verifier is stored with the public-link metadata. SQLite serializes claims using `BEGIN IMMEDIATE`, so one claim succeeds.
 
-The browser downloads ciphertext before the claim. An observer
-or recipient can retain those bytes and decrypt them offline
-if they know the password. Expiration only revokes future
-server-mediated access, not copies already obtained.
+The browser's private unlock path does not contact the public single-view endpoint. A recipient who downloaded ciphertext can retain a copy and later decrypt it offline if they know the password. A read-once public link therefore limits application-mediated access.
 
-See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+Automatic note deletion is opt-in within the Share modal, unchecked by default. It removes active files but cannot erase historic backups or snapshots. Manually unpublishing preserves the original.
+
 
 ## Security boundaries and limitations
 
