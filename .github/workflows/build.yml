@@ -32,6 +32,9 @@ jobs:
       - name: Test protected-note password policy
         run: node scripts/test-password-policy.mjs
 
+      - name: Test unified note editing
+        run: node scripts/test-note-ui.mjs
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Bundle frontend into Python package

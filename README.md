@@ -216,6 +216,26 @@ downloads and filesystem snapshots are not automatically erased.
 
 See [Expiring Notes](wiki/Expiring-Notes.md) for the complete behavior.
 
+### Unified note toolbar
+
+Ordinary and protected notes now use the same responsive title field and
+action toolbar, including an **Edit** toggle. **Share** and **Expiration**
+have the normal foreground text color when configured and a muted
+appearance when inactive. **Delete** is red. Both edit and view mode
+retain the available actions.
+
+On a **new note**, Share and Expiration open the same modal dialogs as
+for existing notes. The settings are staged locally and applied only
+after the first successful save. This avoids trying to configure an
+encrypted note that has not been created yet. New notes can be protected
+directly with **Protect** while editing: encryption happens in the
+browser without sending an intermediate plaintext draft to the server.
+
+On an existing ordinary note, Protect can also use currently unsaved
+editor content, encrypting it directly during conversion. For protected
+notes, **Lock** prompts before discarding unsaved edits. The title
+occupies its own row on mobile screens.
+
 ## Publish a note
 
 Open an existing note and click **Share**. Notes are private by default; choose **Public: read-only** or **Public: anyone with the link can edit**. Select a URL identifier:

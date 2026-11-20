@@ -31,6 +31,9 @@
       <p class="mb-4 text-sm text-theme-text-muted">
         Encryption and decryption run only inside your browser. Your password is never sent to the server.
       </p>
+      <p v-if="router.currentRoute.value.query.sharingError" class="mb-3 text-sm text-theme-danger" role="alert">
+        The note was protected, but its public link could not be activated. Unlock it and use Share to retry.
+      </p>
       <form @submit.prevent="isNew ? initializeNew() : unlock()">
         <label class="mb-1 block" for="encrypted-password">Protection password</label>
         <input
@@ -356,6 +359,8 @@ async function save() {
           shareActive.value = Boolean(publication?.slug);
           stagedShare.value = null;
         } catch {
+          shareActive.value = false;
+          stagedShare.value = null;
           message.value = "Note saved, but sharing could not be activated. Open Share to try again.";
         }
       }

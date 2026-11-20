@@ -41,12 +41,20 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useGlobalStore } from "../globalStore.js";
 import { passwordPolicyDescription, validateProtectionPassword } from "../passwordPolicy.js";
-import { protectPlainNote } from "../api.js";
+import { protectPlainNote, saveEncryptedNote, saveEncryptedPublication } from "../api.js";
 import { EncryptedSession, newEncryptedId } from "../cryptoSession.js";
 import CustomButton from "./CustomButton.vue";
 import Modal from "./Modal.vue";
 
-const props = defineProps({ title: String, content: String, lastModified: Number });
+const props = defineProps({
+  title: String,
+  content: String,
+  sourceTitle: String,
+  lastModified: Number,
+  newNote: { type: Boolean, default: false },
+  expirationPolicy: { type: String, default: "none" },
+  pendingShare: { type: Object, default: null },
+});
 const isVisible = defineModel({ type: Boolean });
 const router = useRouter();
 const globalStore = useGlobalStore();
@@ -74,19 +82,44 @@ async function protect() {
   }
   const cryptoSession = new EncryptedSession();
   busy.value = true;
+  let sharingFailed = false;
   try {
     const noteId = newEncryptedId();
     const ciphertext = await cryptoSession.create(
       noteId, password.value, props.title, props.content || "",
     );
-    await protectPlainNote(props.title, noteId, ciphertext, props.lastModified);
+    if (props.newNote) {
+      const policy = globalStore.config.expirationEnabled ? props.expirationPolicy : "none";
+      const verifier = policy === "once" ? await cryptoSession.viewVerifier() : null;
+      await saveEncryptedNote(noteId, ciphertext, "*", null, policy, verifier);
+      if (props.pendingShare) {
+        try {
+          const settings = props.pendingShare.slugMode === "title"
+            ? { ...props.pendingShare, slugMode: "random", slug: null }
+            : props.pendingShare;
+          await saveEncryptedPublication(noteId, settings);
+        } catch {
+          // Keep the encrypted note even if the optional publication fails.
+          sharingFailed = true;
+        }
+      }
+    } else {
+      const verifier = props.expirationPolicy === "once" ? await cryptoSession.viewVerifier() : null;
+      await protectPlainNote(
+        props.sourceTitle || props.title, noteId, ciphertext, props.lastModified, verifier,
+      );
+    }
     password.value = "";
     confirmation.value = "";
     localStorage.removeItem(props.title);
     sessionStorage.removeItem(props.title);
     emit("protected");
     isVisible.value = false;
-    await router.replace({ name: "encryptedNote", params: { id: noteId } });
+    await router.replace({
+      name: "encryptedNote",
+      params: { id: noteId },
+      query: sharingFailed ? { sharingError: "1" } : {},
+    });
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Unable to protect this note.";
   } finally {

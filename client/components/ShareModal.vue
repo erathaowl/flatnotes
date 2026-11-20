@@ -154,6 +154,13 @@ async function save() {
   errorMessage.value = "";
   try {
     if (props.draft) {
+      if (access.value !== "private" && slugMode.value !== "random") {
+        const slug = slugMode.value === "title"
+          ? slugify(props.title) : customSlug.value.trim().toLowerCase();
+        if (!/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(slug)) {
+          throw new Error("Enter a valid public URL suffix before saving.");
+        }
+      }
       emit("updated", access.value === "private" ? null : {
         slugMode: slugMode.value,
         slug: slugMode.value === "custom" ? customSlug.value.trim() : null,
@@ -175,7 +182,7 @@ async function save() {
     emit("updated", published.value);
     isVisible.value = false;
   } catch (error) {
-    errorMessage.value = error.response?.data?.detail || "Failed to publish this note.";
+    errorMessage.value = error.response?.data?.detail || error.message || "Failed to publish this note.";
   } finally {
     busy.value = false;
   }

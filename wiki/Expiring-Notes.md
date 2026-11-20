@@ -31,6 +31,22 @@ With the master switch disabled, existing rules **remain enforced** and
 users cannot configure new ones. Changing the default affects new notes
 only. Existing notes and their deadlines remain unchanged.
 
+## Expiration modal before and after saving
+
+Ordinary and protected notes use the same **Expiration** button
+and modal dialog during creation, editing and viewing.
+No inline expiration selector appears in the main editor.
+
+On a new note, the dialog stages the policy locally, without
+calling the backend. On the first save, the note and its policy
+are created together. This fixes the error caused by an
+expiration API request for a not-yet-saved encrypted note.
+
+On an existing note, the modal loads the current server policy
+and saves changes through the expiration API. The button has
+primary foreground text color if a policy is configured
+and a muted appearance for `none`.
+
 ## Choosing an expiration
 
 - **Never:** the note remains available until manually deleted.

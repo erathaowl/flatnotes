@@ -204,6 +204,24 @@ attivi non elimina automaticamente backup, snapshot o copie scaricate.
 
 Guida: [Expiring Notes](wiki/Expiring-Notes.md).
 
+### Interfaccia di modifica unificata
+
+Le note ordinarie e cifrate condividono il campo titolo e la barra dei
+comandi, con **Edit** a interruttore. I pulsanti **Share** e
+**Expiration** mostrano il colore principale quando sono attivi e
+rimangono attenuati quando sono disattivati. **Delete** è rosso.
+
+Per una nota ancora da salvare, Share ed Expiration aprono gli stessi
+modali previsti per le note esistenti. Le impostazioni vengono
+preparate nel browser e applicate solo al primo salvataggio riuscito.
+Si evita così l'errore provocato dal tentativo di impostare la scadenza
+su una nota cifrata ancora inesistente.
+
+**Protect** permette anche di cifrare direttamente una nota normale
+nuova o con modifiche non salvate, senza un salvataggio intermedio
+in chiaro sul server. Per le note cifrate, Lock richiede conferma
+prima di abbandonare modifiche non salvate.
+
 ## Pubblicazione delle note
 
 Apri una nota già salvata e premi **Share**. Le note sono inizialmente private. Puoi scegliere l'accesso pubblico in **sola lettura** o abilitare **la modifica da parte di chi possiede il collegamento**.

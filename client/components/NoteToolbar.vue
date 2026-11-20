@@ -6,7 +6,7 @@
       :iconPath="mdilLink"
       label="Share"
       :style="shareActive ? 'active' : 'subtle'"
-      :disabled="busy"
+      :disabled="busy || !canModify || consumed"
       @click="$emit('share')"
     />
     <CustomButton
@@ -14,15 +14,15 @@
       :iconPath="mdilClock"
       label="Expiration"
       :style="expirationActive ? 'active' : 'subtle'"
-      :disabled="busy"
+      :disabled="busy || !canModify || consumed"
       @click="$emit('expiration')"
     />
     <CustomButton
       v-if="showProtect"
       :iconPath="mdilLock"
       label="Protect"
-      :disabled="editing || isNew || busy"
-      title="Save and finish editing before protecting this note"
+      :disabled="busy"
+      title="Encrypt this note in your browser"
       @click="$emit('protect')"
     />
     <CustomButton

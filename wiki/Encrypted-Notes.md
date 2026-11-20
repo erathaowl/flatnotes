@@ -69,6 +69,28 @@ server-enforced access limit.
 
 Full details: [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
 
+## Shared editor and settings before the first save
+
+Once the protection password has been entered, the encrypted
+editor uses the same title field, **Edit** toggle and action
+toolbar as the ordinary editor. Both **Share** and **Expiration**
+are usable before the note exists on the server.
+
+Before the first save, their modal dialogs store the chosen
+settings only in the browser. Saving the encrypted note first
+creates the ciphertext file and expiration rule, and then
+applies any pending publication. This prevents configuring
+expiration against a nonexistent note. A failed publication
+does not discard a note already encrypted and saved.
+
+**Share** and **Expiration** are displayed with primary
+foreground text color when active; otherwise their icon and
+label remain muted. Delete is red. Lock asks for confirmation
+before abandoning unsaved edits.
+
+The ordinary editor can protect new notes or currently unsaved
+changes without an intermediate plaintext network request.
+
 ## Password requirements
 
 The administrator can configure the minimum password length with

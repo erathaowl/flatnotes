@@ -58,9 +58,13 @@
   <ProtectModal
     v-if="globalStore.config.encryptionEnabled"
     v-model="isProtectModalVisible"
-    :title="note.title"
-    :content="note.content"
+    :title="protectPayload.title"
+    :content="protectPayload.content"
+    :sourceTitle="note.title"
     :lastModified="note.lastModified"
+    :newNote="isNewNote"
+    :expirationPolicy="isNewNote ? expirationPolicy : note.expiration?.policy || 'none'"
+    :pendingShare="isNewNote ? stagedShare : null"
     @protected="clearProtectedDraft"
   />
 
@@ -86,7 +90,7 @@
         :busy="saving"
         @share="isShareModalVisible = true"
         @expiration="isExpirationModalVisible = true"
-        @protect="isProtectModalVisible = true"
+        @protect="openProtect"
         @export="exportMarkdown"
         @delete="deleteHandler"
         @cancel="closeHandler"
@@ -184,6 +188,7 @@ const shareActive = ref(false);
 const saving = ref(false);
 const titleError = ref(false);
 const noteHeader = ref(null);
+const protectPayload = ref({ title: "", content: "" });
 const expirationActive = computed(() => {
   const policy = isNewNote.value ? expirationPolicy.value : note.value.expiration?.policy;
   return Boolean(policy && policy !== "none");
@@ -240,6 +245,20 @@ function init() {
       loadingIndicator.value.setLoaded();
     });
   }
+}
+
+function openProtect() {
+  const title = editMode.value ? newTitle.value?.trim() : note.value.title;
+  if (!title) {
+    titleError.value = true;
+    nextTick(() => noteHeader.value?.focusTitle());
+    return;
+  }
+  protectPayload.value = {
+    title,
+    content: editMode.value ? toastEditor.value?.getMarkdown() || "" : note.value.content || "",
+  };
+  isProtectModalVisible.value = true;
 }
 
 function onExpirationUpdated(value) {
@@ -376,6 +395,8 @@ async function saveNew(newTitle, newContent, close = false) {
         shareActive.value = Boolean(published?.slug);
         stagedShare.value = null;
       } catch {
+        shareActive.value = false;
+        stagedShare.value = null;
         toast.add(getToastOptions(
           "The note was saved, but sharing could not be activated. Open Share to try again.",
           "Sharing", "error",

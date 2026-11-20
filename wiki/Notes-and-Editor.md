@@ -20,6 +20,29 @@ Direct URL navigation and refresh are supported, including `/encrypted`.
 Private routes require normal application authentication in
 `password` and `totp` modes. The public route uses its own access rules.
 
+## Shared note header and controls
+
+Both note types use the same responsive title field and toolbar,
+with the **Edit** toggle available both before and after the first
+save. **Share** and **Expiration** use primary foreground color
+when configured and muted text when not configured. **Delete** uses
+the red danger style.
+
+On a newly created note, Share and Expiration are already available
+through their modal dialogs. Choices are staged in the browser
+and applied when the note is first saved. A new encrypted note
+does not exist on the server before the first save, so expiration
+configuration never contacts an unavailable note endpoint.
+
+The ordinary editor also exposes **Protect** while editing. It can
+encrypt unsaved Markdown directly in the browser without first
+uploading those edits in plaintext. The protected editor exposes
+**Lock**, including a confirmation if the current edit has not
+been saved.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes)
+and [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
+
 ## Ordinary Markdown notes
 
 1. Select **New Note**, enter a title in the *Title* field and write Markdown
