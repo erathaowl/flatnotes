@@ -106,7 +106,7 @@ Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, usin
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.3.0` release. Use `:latest` for the latest published release or `:develop` only when testing the current development branch.
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.3.0` release. Use `:latest` for the latest published release or `:master` only when testing the latest commits on the primary branch.
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
@@ -294,7 +294,7 @@ Back up ordinary notes, encrypted envelopes, attachments, and the SQLite databas
 
 ## Builds and releases
 
-GitHub Actions on `develop` run frontend compilation and Python tests, produce an application `.tar.gz` and a Python `.whl` artifact, and publish `ghcr.io/erathaowl/flatnotes:develop` and `:sha-<commit>`. Pull requests validate builds without publishing images.
+GitHub Actions on `master` run frontend compilation and Python tests, produce an application `.tar.gz` and a Python `.whl` artifact, and publish `ghcr.io/erathaowl/flatnotes:master` and `:sha-<commit>`. Pull requests validate builds without publishing images.
 
 Pushing a version tag `vX.Y.Z` (or `vX.Y`, normalized to `vX.Y.0`) builds and publishes `ghcr.io/erathaowl/flatnotes:vX.Y.Z`, updates `:latest`, and creates a [GitHub Release](https://github.com/erathaowl/flatnotes/releases) containing a compiled frontend/backend archive and an installable wheel. This archive is a source bundle, not a Python wheel.
 

@@ -12,7 +12,7 @@ The backend in 6.3.0 registers `/encrypted` as a page URL.
 If you still receive `{"detail":"Not Found"}`, verify that your
 container really runs the updated image and that the reverse proxy
 is forwarding the route to flatnotes, rather than to another app.
-`:develop` and `:v6.3.0` are separate image tags.
+`:master` and `:v6.3.0` are separate image tags.
 
 ## Encryption does not work from a phone
 

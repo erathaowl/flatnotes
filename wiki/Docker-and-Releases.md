@@ -52,7 +52,7 @@ This fork publishes images in GitHub Container Registry:
 ghcr.io/erathaowl/flatnotes
 ```
 
-The `develop` tag is updated after pushes to the development branch. Tagged Git releases generate versioned images and update `latest`. Versioned images are preferable for reproducible deployments once releases exist.
+The `master` tag is updated after pushes to the primary branch. Tagged Git releases generate versioned images and update `latest`. Versioned images are preferable for reproducible deployments once releases exist.
 
 ## Docker Compose installation
 
@@ -108,10 +108,10 @@ docker run -d --name flatnotes \
 
 | Workflow | Trigger | Output |
 | --- | --- | --- |
-| Build | Push to `develop`, pull request targeting `develop`, manual run | Compiled frontend, Python tests, application archive and Python wheel; Docker image for pushes |
-| Release | Version tag or release-request file update on `develop` | GitHub Release archive, Python wheel, and GHCR image |
+| Build | Push to `master`, pull request targeting `master`, manual run | Compiled frontend, Python tests, application archive and Python wheel; Docker image for pushes |
+| Release | Version tag or release-request file update on `master` | GitHub Release archive, Python wheel, and GHCR image |
 
-Build pushes create image tags `:develop` and `:sha-<commit>`. Pull requests do not push to GHCR.
+Build pushes create image tags `:master` and `:sha-<commit>`. Pull requests do not push to GHCR.
 
 Release tags `vX.Y` are normalized to `vX.Y.0` for the published image and release name. The release workflow builds and tests the code, pushes `:vX.Y.Z` and `:latest` to GHCR, and attaches a `.tar.gz` application bundle and installable Python wheel to the GitHub Release. The bundle includes compiled frontend assets, Python backend sources,
 English and Italian READMEs, branding reference files and the complete
@@ -129,7 +129,7 @@ note exists. Protect can encrypt a new or modified ordinary draft
 without storing an intermediate plaintext note on the server.
 
 Production deployments should pin the released Docker image
-instead of using `:develop`. The wheel and application archive
+instead of using `:master`. The wheel and application archive
 are published after the release workflow's tests succeed.
 
 ## Updating

@@ -5,7 +5,7 @@ on:
     tags:
       - 'v*'
     branches:
-      - develop
+      - master
     paths:
       - '.github/release-request.txt'
 

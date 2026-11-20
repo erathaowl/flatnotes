@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [develop]
+    branches: [master]
   pull_request:
-    branches: [develop]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -55,7 +55,7 @@ jobs:
       - name: Create application package
         shell: bash
         run: |
-          version="develop-${GITHUB_SHA:0:7}"
+          version="master-${GITHUB_SHA:0:7}"
           bash scripts/build-package.sh "$version"
 
       - name: Verify packaged documentation
@@ -71,7 +71,7 @@ jobs:
           retention-days: 14
 
   docker:
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop')
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,7 +92,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=develop
+            type=raw,value=master
             type=sha,prefix=sha-
 
       - uses: docker/build-push-action@v6

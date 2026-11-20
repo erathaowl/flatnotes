@@ -10,8 +10,8 @@ full-text search and custom branding.
 Release highlights: shared ordinary/encrypted editor controls, configurable
 note expiration, encrypted notes and pre-save Share/Expiration dialogs.
 See [Release notes](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0) for changes and upgrade guidance.
-[English README](https://github.com/erathaowl/flatnotes/blob/develop/README.md) ·
-[README italiano](https://github.com/erathaowl/flatnotes/blob/develop/readme-it.md) ·
+[English README](https://github.com/erathaowl/flatnotes/blob/master/README.md) ·
+[README italiano](https://github.com/erathaowl/flatnotes/blob/master/readme-it.md) ·
 [GitHub Actions](https://github.com/erathaowl/flatnotes/actions)
 
 ## Start here
@@ -106,6 +106,6 @@ and the note passwords needed for encrypted data.
 ## Documentation maintenance
 
 The authoritative Markdown source for these pages lives in
-[`wiki/` on develop](https://github.com/erathaowl/flatnotes/tree/develop/wiki).
+[`wiki/` on master](https://github.com/erathaowl/flatnotes/tree/master/wiki).
 The [Publish Wiki workflow](https://github.com/erathaowl/flatnotes/actions/workflows/publish-wiki.yml)
 synchronizes the repository directory with this GitHub Wiki.

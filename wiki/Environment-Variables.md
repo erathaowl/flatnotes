@@ -179,4 +179,4 @@ encryption password.
 ## More information
 
 - [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)
-- [README](https://github.com/erathaowl/flatnotes/blob/develop/README.md)
+- [README](https://github.com/erathaowl/flatnotes/blob/master/README.md)

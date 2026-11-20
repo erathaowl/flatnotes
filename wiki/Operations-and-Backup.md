@@ -5,7 +5,7 @@
 flatnotes 6.3.0 ships with three deployment artifacts:
 
 - GHCR images `ghcr.io/erathaowl/flatnotes:v6.3.0` and `:latest`;
-  `:develop` tracks the development branch.
+  `:master` tracks the development branch.
 - An installable Python 3.13 wheel,
   `flatnotes-6.3.0-py3-none-any.whl`, including the FastAPI
   backend, compiled Vue frontend and `flatnotes` CLI.
@@ -59,7 +59,7 @@ docker compose logs --tail=100 flatnotes
 ```
 
 Use a pinned tag `v6.3.0` for reproducible deployments. The
-`:develop` tag is for testing and changes with each successful
+`:master` tag is for testing and changes with each successful
 development build.
 
 A reverse proxy can expose HTTPS and forward to the container

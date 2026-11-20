@@ -98,7 +98,7 @@ Prepara un file `.env` contenente `FLATNOTES_PASSWORD` e `FLATNOTES_SECRET_KEY`,
 docker compose up -d
 ```
 
-Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.3.0`; `:latest` indica l'ultima release pubblicata, mentre `:develop` è destinato ai test delle build di sviluppo.
+Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.3.0`; `:latest` indica l'ultima release pubblicata, mentre `:master` è destinato ai test dei commit più recenti del branch principale.
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
@@ -280,7 +280,7 @@ Salva note ordinarie, file cifrati, allegati e database nei backup. A container 
 
 ## CI/CD e release
 
-I push su `develop` attivano compilazione frontend, test Python, creazione di un archivio `.tar.gz` e un wheel `.whl` e pubblicazione delle immagini `:develop` e `:sha-<commit>` su GHCR. Le pull request eseguono la validazione senza pubblicare immagini.
+I push su `master` attivano compilazione frontend, test Python, creazione di un archivio `.tar.gz` e un wheel `.whl` e pubblicazione delle immagini `:master` e `:sha-<commit>` su GHCR. Le pull request eseguono la validazione senza pubblicare immagini.
 
 Un tag `vX.Y.Z` (oppure `vX.Y`, normalizzato in `vX.Y.0`) pubblica l'immagine versionata e aggiorna `:latest`, creando una [GitHub Release](https://github.com/erathaowl/flatnotes/releases) con archivio contenente backend e frontend compilato e wheel installabile con pip. L'archivio è un bundle del progetto e non un pacchetto wheel.
 

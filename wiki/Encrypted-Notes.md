@@ -260,4 +260,4 @@ Anonymous ciphertext endpoints use `/api/public/encrypted-notes/{slug}`,
 return ciphertext and accept writes only for explicitly editable links.
 
 See the [environment reference](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables)
-and the [README](https://github.com/erathaowl/flatnotes/blob/develop/README.md).
+and the [README](https://github.com/erathaowl/flatnotes/blob/master/README.md).

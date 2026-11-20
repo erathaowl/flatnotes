@@ -2,7 +2,7 @@ name: Update npm lockfile
 
 on:
   push:
-    branches: [develop]
+    branches: [master]
     paths: [package.json]
   workflow_dispatch:
 

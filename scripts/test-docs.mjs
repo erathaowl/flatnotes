@@ -72,4 +72,23 @@ assert.match(read("wiki/Expiring-Notes.md"), /no inline selector/i);
 assert.match(read("wiki/Notes-and-Editor.md"), /unsaved/i);
 assert.match(read("wiki/Publishing-Notes.md"), /first \*\*Save\*\*/);
 
+// Keep workflow triggers and links aligned with the canonical branch.
+const workflows = [
+  ".github/workflows/build.yml",
+  ".github/workflows/release.yml",
+  ".github/workflows/publish-wiki.yml",
+  ".github/workflows/update-node-lock.yml",
+];
+const releaseNotes = readdirSync(".github/release-notes")
+  .filter((file) => file.endsWith(".md"))
+  .map((file) => join(".github/release-notes", file));
+
+for (const file of [...docs, ...workflows, ...releaseNotes]) {
+  assert.doesNotMatch(read(file), /\bdevelop\b/,
+    "Obsolete develop branch reference in " + file);
+}
+for (const file of workflows) {
+  assert.match(read(file), /master/, "Missing master branch configuration in " + file);
+}
+
 console.log("Validated " + docs.length + " Markdown documents for version " + version + ".");
