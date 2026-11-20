@@ -4,7 +4,7 @@
     :class="{
       'bg-theme-background text-theme-text-muted hover:bg-theme-background-elevated':
         style === 'subtle',
-      'bg-theme-background text-theme-text hover:bg-theme-background-elevated':
+      'bg-theme-background text-theme-text dark:text-white hover:bg-theme-background-elevated':
         style === 'active',
       'border bg-theme-background hover:bg-theme-background-elevated':
         style === 'cta',
