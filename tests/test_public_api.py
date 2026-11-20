@@ -241,7 +241,7 @@ class PublicApiTests(unittest.TestCase):
     def test_encrypted_listing_direct_url(self):
         response = self.client.get("/encrypted")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("<html>", response.text)
+        self.assertIn('<div id="app"', response.text)
 
     def test_delete_encrypted_note_without_unlocking(self):
         from flatnotes import main
