@@ -31,13 +31,16 @@
         <TextInput id="publication-custom-slug" v-model="customSlug" placeholder="my-shared-note" />
       </div>
 
-      <div v-if="previewSlug" class="mb-4 break-all rounded bg-theme-background-elevated p-3 text-sm">
+      <p v-if="draft" class="mb-4 text-sm text-theme-text-muted">
+        Sharing will be activated after the first successful note save.
+      </p>
+      <div v-if="!draft && previewSlug" class="mb-4 break-all rounded bg-theme-background-elevated p-3 text-sm">
         <div class="mb-1 text-theme-text-muted">Link preview</div>
         <a class="underline" :href="previewUrl" target="_blank" rel="noopener noreferrer">
           {{ previewUrl }}
         </a>
       </div>
-      <p v-else class="mb-4 text-sm text-theme-text-muted">
+      <p v-else-if="!draft" class="mb-4 text-sm text-theme-text-muted">
         Save to generate a random public link.
       </p>
 
@@ -52,7 +55,7 @@
     <p v-if="errorMessage" role="alert" class="mb-4 text-sm text-theme-danger">{{ errorMessage }}</p>
 
     <div class="flex flex-wrap justify-end gap-2">
-      <CustomButton v-if="published" label="Unpublish" style="danger" :disabled="busy" @click="unpublish" />
+      <CustomButton v-if="published && !draft" label="Unpublish" style="danger" :disabled="busy" @click="unpublish" />
       <CustomButton
         v-if="published && access !== 'private' && previewSlug === published.slug"
         label="Copy link"
@@ -60,7 +63,7 @@
         @click="copyLink"
       />
       <CustomButton label="Close" @click="isVisible = false" />
-      <CustomButton v-if="access !== 'private'" label="Save" style="cta" :disabled="busy" @click="save" />
+      <CustomButton v-if="draft || access !== 'private'" :label="draft ? 'Apply' : 'Save'" style="cta" :disabled="busy" @click="save" />
     </div>
   </Modal>
 </template>
@@ -76,7 +79,13 @@ import CustomButton from "./CustomButton.vue";
 import Modal from "./Modal.vue";
 import TextInput from "./TextInput.vue";
 
-const props = defineProps({ title: String, encryptedId: String });
+const props = defineProps({
+  title: String,
+  encryptedId: String,
+  draft: { type: Boolean, default: false },
+  initialSettings: { type: Object, default: null },
+});
+const emit = defineEmits(["updated"]);
 const isVisible = defineModel({ type: Boolean });
 const router = useRouter();
 const published = ref(null);
@@ -116,6 +125,15 @@ const previewUrl = computed(() => {
 async function load() {
   busy.value = true;
   errorMessage.value = "";
+  if (props.draft) {
+    published.value = null;
+    access.value = props.initialSettings?.permission || "private";
+    slugMode.value = props.initialSettings?.slugMode || "random";
+    customSlug.value = props.initialSettings?.slugMode === "custom"
+      ? props.initialSettings.slug || "" : "";
+    busy.value = false;
+    return;
+  }
   try {
     published.value = props.encryptedId
       ? await getEncryptedPublication(props.encryptedId)
@@ -135,6 +153,15 @@ async function save() {
   busy.value = true;
   errorMessage.value = "";
   try {
+    if (props.draft) {
+      emit("updated", access.value === "private" ? null : {
+        slugMode: slugMode.value,
+        slug: slugMode.value === "custom" ? customSlug.value.trim() : null,
+        permission: access.value,
+      });
+      isVisible.value = false;
+      return;
+    }
     published.value = await (props.encryptedId
       ? saveEncryptedPublication(props.encryptedId, {
         slugMode: slugMode.value, slug: slugMode.value === "custom" ? customSlug.value : null,
@@ -145,6 +172,7 @@ async function save() {
       slug: slugMode.value === "custom" ? customSlug.value : null,
       permission: access.value,
     }));
+    emit("updated", published.value);
     isVisible.value = false;
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Failed to publish this note.";
@@ -162,6 +190,7 @@ async function unpublish() {
     else await removePublication(props.title);
     published.value = null;
     access.value = "private";
+    emit("updated", null);
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Failed to unpublish this note.";
   } finally {
@@ -178,6 +207,6 @@ async function copyLink() {
 }
 
 watch(isVisible, (visible) => {
-  if (visible && props.title) load();
+  if (visible && (props.draft || props.title || props.encryptedId)) load();
 });
 </script>

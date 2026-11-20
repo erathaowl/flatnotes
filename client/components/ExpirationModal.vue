@@ -27,6 +27,8 @@ const props = defineProps({
   kind: { type: String, required: true },
   noteId: { type: String, required: true },
   getVerifier: { type: Function, default: null },
+  draft: { type: Boolean, default: false },
+  initialPolicy: { type: String, default: "none" },
 });
 const visible = defineModel({ type: Boolean });
 const emit = defineEmits(["updated"]);
@@ -40,6 +42,12 @@ watch(visible, async (open) => {
   if (!open) return;
   loading.value = true;
   errorMessage.value = "";
+  if (props.draft) {
+    policy.value = props.initialPolicy;
+    current.value = { policy: props.initialPolicy, expiresAt: null };
+    loading.value = false;
+    return;
+  }
   try {
     current.value = await getNoteExpiration(props.kind, props.noteId);
     policy.value = current.value.policy;
@@ -55,6 +63,13 @@ async function save() {
   busy.value = true;
   errorMessage.value = "";
   try {
+    if (props.draft) {
+      const mode = policy.value === "none" || policy.value === "once" ? policy.value : "time";
+      current.value = { policy: policy.value, mode, expiresAt: null };
+      emit("updated", current.value);
+      visible.value = false;
+      return;
+    }
     const verifier = policy.value === "once" && props.kind === "encrypted"
       ? await props.getVerifier?.()
       : null;

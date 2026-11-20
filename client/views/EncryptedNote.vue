@@ -6,6 +6,8 @@
       kind="encrypted"
       :noteId="activeId"
       :getVerifier="getViewVerifier"
+      :draft="isNew"
+      :initialPolicy="expirationPolicy"
       @updated="onExpirationUpdated"
     />
     <ShareModal
@@ -13,6 +15,9 @@
       v-model="showSharing"
       :encryptedId="activeId"
       :title="title"
+      :draft="isNew"
+      :initialSettings="stagedShare"
+      @updated="onShareUpdated"
     />
 
     <div v-if="loading" class="py-12 text-center">Loading encrypted note...</div>
@@ -47,11 +52,6 @@
             class="mb-3 w-full rounded border border-theme-border bg-theme-background px-3 py-2"
           />
         </template>
-        <ExpirationSelect
-          v-if="isNew && globalStore.config.expirationEnabled"
-          v-model="expirationPolicy"
-          class="mb-4"
-        />
         <p v-if="isNew" class="mb-3 text-xs text-theme-text-muted">
           {{ passwordPolicyDescription(globalStore.config) }}
         </p>
@@ -61,59 +61,41 @@
     </div>
 
     <template v-else>
-      <header class="mb-3 flex flex-col gap-3">
-        <div class="min-w-0 w-full">
-          <input
-            v-if="editing && !publicSlug"
-            ref="titleInput"
-            v-model="title"
-            placeholder="Title"
-            :aria-invalid="titleError"
-            aria-label="Note title"
-            class="w-full min-w-0 bg-theme-background text-2xl outline-none placeholder:italic placeholder:text-theme-text-very-muted sm:text-3xl"
-            @input="titleError = false"
-          />
-          <h1 v-else class="break-words text-2xl sm:text-3xl">{{ title }}</h1>
-          <p v-if="titleError" class="mt-1 text-sm text-theme-danger" role="alert">Title is required.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-1 print:hidden sm:gap-2">
-          <CustomButton :iconPath="mdilLock" label="Lock" @click="lock" />
-          <CustomButton
-            v-if="!publicSlug && globalStore.config.sharingEnabled"
-            :iconPath="mdilLink"
-            label="Share"
-            @click="showSharing = true"
-          />
-          <CustomButton
-            v-if="!publicSlug && globalStore.config.expirationEnabled && !consumedView"
-            :iconPath="mdilClock"
-            label="Expiration"
-            @click="showExpiration = true"
-          />
-          <CustomButton
-            v-if="!publicSlug"
-            :iconPath="mdilDownload"
-            label="Export Markdown"
-            @click="exportMarkdown"
-          />
-          <CustomButton
-            v-if="!publicSlug"
-            :iconPath="mdilDelete"
-            label="Delete"
-            style="danger"
-            @click="remove"
-          />
-          <CustomButton v-if="canEdit && editing" :iconPath="mdilPaperclip" label="Attach file" @click="fileInput?.click()" />
-          <input ref="fileInput" type="file" class="hidden" @change="attachFile" />
-          <CustomButton v-if="canEdit && editing" :iconPath="mdilCancel" label="Cancel" @click="cancelEdit" />
-          <CustomButton v-if="canEdit && editing" :iconPath="mdilContentSave" label="Save" :disabled="busy" @click="save" />
-          <CustomButton v-if="canEdit && !editing" label="Edit" @click="editing = true" />
-        </div>
-      </header>
-      <p v-if="expiration.mode !== 'none'" class="text-xs text-theme-text-muted">
-        {{ expiration.mode === "once"
+      <NoteHeader
+        ref="noteHeader"
+        v-model:title="title"
+        :displayTitle="title"
+        :editing="editing && !publicSlug"
+        :titleError="titleError"
+        @titleInput="titleError = false"
+      >
+        <NoteToolbar
+          encrypted
+          :editing="editing"
+          :isNew="isNew"
+          :canModify="canEdit"
+          :consumed="consumedView"
+          :showShare="!publicSlug && globalStore.config.sharingEnabled"
+          :showExpiration="!publicSlug && globalStore.config.expirationEnabled && !consumedView"
+          :shareActive="shareActive"
+          :expirationActive="expirationActive"
+          :busy="busy"
+          @lock="confirmAndLock"
+          @share="showSharing = true"
+          @expiration="showExpiration = true"
+          @export="exportMarkdown"
+          @delete="remove"
+          @attach="fileInput?.click()"
+          @cancel="cancelEdit"
+          @save="save"
+          @toggle-edit="toggleEditMode"
+        />
+      </NoteHeader>
+      <input ref="fileInput" type="file" class="hidden" @change="attachFile" />
+      <p v-if="currentExpiration.mode !== 'none'" class="mb-2 text-xs text-theme-text-muted">
+        {{ currentExpiration.mode === "once"
           ? (consumedView ? "Single view consumed" : "Single view on next opening")
-          : "Expires " + new Date(expiration.expiresAt * 1000).toLocaleString() }}
+          : (isNew ? "Expires after the first save" : "Expires " + new Date(currentExpiration.expiresAt * 1000).toLocaleString()) }}
       </p>
       <hr class="mb-4 border-theme-border" />
       <p v-if="message" role="alert" class="mb-3 text-theme-danger">{{ message }}</p>
@@ -150,10 +132,7 @@
 
 <script setup>
 import SvgIcon from "@jamescoyle/vue-icon";
-import {
-  mdilCancel, mdilContentSave, mdilDelete, mdilDownload,
-  mdilClock, mdilLink, mdilLock, mdilPaperclip,
-} from "@mdi/light-js";
+import { mdilLock } from "@mdi/light-js";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
@@ -161,12 +140,15 @@ import {
   consumeEncryptedView,
   deleteEncryptedNote,
   fetchEncryptedNote,
+  getEncryptedPublication,
+  saveEncryptedPublication,
   saveEncryptedNote,
 } from "../api.js";
 import CustomButton from "../components/CustomButton.vue";
 import ShareModal from "../components/ShareModal.vue";
 import ExpirationModal from "../components/ExpirationModal.vue";
-import ExpirationSelect from "../components/ExpirationSelect.vue";
+import NoteHeader from "../components/NoteHeader.vue";
+import NoteToolbar from "../components/NoteToolbar.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
 import { EncryptedSession, copyAttachments, newEncryptedId } from "../cryptoSession.js";
@@ -190,6 +172,10 @@ const busy = ref(false);
 const editing = ref(false);
 const showSharing = ref(false);
 const showExpiration = ref(false);
+const stagedShare = ref(null);
+const shareActive = ref(false);
+const savedTitle = ref("");
+const noteHeader = ref(null);
 const expiration = ref({ mode: "none", policy: "none", expiresAt: null });
 const expirationPolicy = ref("none");
 const consumedView = ref(false);
@@ -204,6 +190,13 @@ let savedAttachments = [];
 let cryptoSession = null;
 
 const isNew = computed(() => props.id === "new" && !props.publicSlug);
+const currentExpiration = computed(() => isNew.value
+  ? { mode: expirationPolicy.value === "none" || expirationPolicy.value === "once"
+      ? expirationPolicy.value : "time", policy: expirationPolicy.value }
+  : expiration.value);
+const expirationActive = computed(() =>
+  currentExpiration.value.policy !== "none",
+);
 const canEdit = computed(() =>
   (!props.publicSlug || permission.value === "edit") &&
   globalStore.config.authType !== "read_only" &&
@@ -219,7 +212,10 @@ async function load() {
   lock();
   loading.value = true;
   loadError.value = "";
-  expirationPolicy.value = globalStore.config.expirationDefault || "none";
+  expirationPolicy.value = globalStore.config.expirationEnabled
+    ? globalStore.config.expirationDefault || "none" : "none";
+  stagedShare.value = null;
+  shareActive.value = false;
   if (isNew.value) {
     if (!globalStore.config.encryptionEnabled) {
       loadError.value = "Creating protected notes is disabled by the administrator.";
@@ -259,7 +255,16 @@ async function unlock() {
     content.value = note.content;
     attachments.value = note.attachments || [];
     savedAttachments = copyAttachments(attachments.value);
+    savedTitle.value = note.title;
     unlocked.value = true;
+    if (!props.publicSlug && globalStore.config.sharingEnabled) {
+      try {
+        const publication = await getEncryptedPublication(activeId.value);
+        shareActive.value = Boolean(publication?.slug);
+      } catch {
+        shareActive.value = false;
+      }
+    }
     password.value = "";
   } catch (error) {
     cryptoSession.close();
@@ -292,6 +297,7 @@ async function initializeNew() {
   try {
     ciphertext.value = await cryptoSession.create(activeId.value, password.value, "", "");
     title.value = "";
+    savedTitle.value = "";
     content.value = "";
     attachments.value = [];
     savedAttachments = [];
@@ -313,13 +319,14 @@ async function save() {
   if (!title.value.trim()) {
     titleError.value = true;
     await nextTick();
-    titleInput.value?.focus();
+    noteHeader.value?.focusTitle();
     return;
   }
   busy.value = true;
   message.value = "";
   titleError.value = false;
   try {
+    const firstSave = isNew.value;
     const markdown = editor.value.getMarkdown();
     const encryptedData = await cryptoSession.save(title.value.trim(), markdown, attachments.value);
     const newPolicy = isNew.value && globalStore.config.expirationEnabled
@@ -330,6 +337,7 @@ async function save() {
       newPolicy, verifier,
     );
     content.value = markdown;
+    savedTitle.value = title.value.trim();
     savedAttachments = copyAttachments(attachments.value);
     ciphertext.value = encryptedData;
     revision.value = result.revision;
@@ -340,8 +348,17 @@ async function save() {
           (newPolicy.endsWith("h") ? 3600 : 86400) };
     }
     editing.value = false;
-    if (isNew.value) {
+    if (firstSave) {
       await router.replace({ name: "encryptedNote", params: { id: activeId.value } });
+      if (stagedShare.value) {
+        try {
+          const publication = await saveEncryptedPublication(activeId.value, stagedShare.value);
+          shareActive.value = Boolean(publication?.slug);
+          stagedShare.value = null;
+        } catch {
+          message.value = "Note saved, but sharing could not be activated. Open Share to try again.";
+        }
+      }
     }
   } catch (error) {
     const status = error.response?.status;
@@ -363,6 +380,7 @@ function lock() {
   cryptoSession?.close();
   cryptoSession = null;
   title.value = "";
+  savedTitle.value = "";
   content.value = "";
   attachments.value = [];
   savedAttachments = [];
@@ -372,6 +390,8 @@ function lock() {
   editing.value = false;
   showSharing.value = false;
   showExpiration.value = false;
+  stagedShare.value = null;
+  shareActive.value = false;
   consumedView.value = false;
   message.value = "";
   titleError.value = false;
@@ -383,17 +403,45 @@ function getViewVerifier() {
 }
 
 function onExpirationUpdated(value) {
-  expiration.value = value;
+  if (isNew.value) expirationPolicy.value = value.policy;
+  else expiration.value = value;
+}
+
+function onShareUpdated(value) {
+  if (isNew.value) stagedShare.value = value;
+  shareActive.value = Boolean(value?.permission && value.permission !== "private");
+}
+
+function toggleEditMode() {
+  if (!canEdit.value || busy.value) return;
+  if (editing.value) cancelEdit();
+  else editing.value = true;
+}
+
+function confirmAndLock() {
+  const unsaved = editing.value && (
+    title.value !== savedTitle.value ||
+    editor.value?.getMarkdown() !== content.value ||
+    attachments.value.length !== savedAttachments.length
+  );
+  if (unsaved && !window.confirm("Discard unsaved edits and lock this note?")) return;
+  lock();
 }
 
 function cancelEdit() {
+  title.value = savedTitle.value;
   attachments.value = copyAttachments(savedAttachments);
   editing.value = false;
   message.value = "";
 }
 
 async function remove() {
-  if (!window.confirm("Permanently delete this encrypted note?")) return;
+  if (!window.confirm(isNew.value ? "Discard this unsaved protected note?" : "Permanently delete this encrypted note?")) return;
+  if (isNew.value) {
+    lock();
+    await router.push({ name: "encryptedNotes" });
+    return;
+  }
   try {
     await deleteEncryptedNote(activeId.value);
     lock();
@@ -404,7 +452,8 @@ async function remove() {
 }
 
 function exportMarkdown() {
-  const file = new Blob([content.value], { type: "text/markdown;charset=utf-8" });
+  const markdown = editing.value ? editor.value?.getMarkdown() || "" : content.value;
+  const file = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
   const href = URL.createObjectURL(file);
   const element = document.createElement("a");
   element.href = href;

@@ -3,7 +3,7 @@
   <ConfirmModal
     v-model="isDeleteModalVisible"
     title="Confirm Deletion"
-    :message="`Are you sure you want to delete the note '${note.title}'?`"
+    :message="isNewNote ? 'Discard this unsaved note?' : `Are you sure you want to delete the note '${note.title}'?`"
     confirmButtonText="Delete"
     confirmButtonStyle="danger"
     @confirm="deleteConfirmedHandler"
@@ -41,13 +41,18 @@
   <ShareModal
     v-if="globalStore.config.sharingEnabled"
     v-model="isShareModalVisible"
-    :title="note.title"
+    :title="note.title || newTitle"
+    :draft="isNewNote"
+    :initialSettings="stagedShare"
+    @updated="onShareUpdated"
   />
   <ExpirationModal
-    v-if="globalStore.config.expirationEnabled && !isNewNote && note.title"
+    v-if="globalStore.config.expirationEnabled"
     v-model="isExpirationModalVisible"
     kind="plain"
-    :noteId="note.title"
+    :noteId="note.title || ''"
+    :draft="isNewNote"
+    :initialPolicy="expirationPolicy"
     @updated="onExpirationUpdated"
   />
   <ProtectModal
@@ -60,73 +65,37 @@
   />
 
   <LoadingIndicator ref="loadingIndicator" class="flex h-full flex-col">
-    <!-- Header -->
-    <div class="flex flex-col-reverse md:flex-row md:items-baseline">
-      <!-- Title -->
-      <div class="grow truncate text-3xl leading-[1.6em]">
-        <span v-show="!editMode" :title="note.title">{{ note.title }}</span>
-        <input
-          v-show="editMode"
-          v-model.trim="newTitle"
-          class="w-full bg-theme-background outline-none placeholder:italic placeholder:text-theme-text-very-muted"
-          placeholder="Title"
-        />
-      </div>
-
-      <!-- Buttons -->
-      <div class="flex shrink-0 self-end md:self-baseline print:hidden">
-        <CustomButton
-          v-if="canModify && !isNewNote && globalStore.config.sharingEnabled"
-          label="Share"
-          @click="isShareModalVisible = true"
-        />
-        <CustomButton
-          v-if="canModify && !isNewNote && !editMode && globalStore.config.encryptionEnabled"
-          label="Protect"
-          @click="isProtectModalVisible = true"
-        />
-        <CustomButton
-          v-if="canModify && !isNewNote && globalStore.config.expirationEnabled"
-          label="Expiration"
-          @click="isExpirationModalVisible = true"
-        />
-        <!-- Delete Button -->
-        <CustomButton
-          v-show="canModify && !isNewNote"
-          label="Delete"
-          :iconPath="mdilDelete"
-          @click="deleteHandler"
-        />
-        <!-- Save Button -->
-        <CustomButton
-          v-show="editMode"
-          label="Save"
-          :iconPath="mdilContentSave"
-          @click="saveHandler((close = false))"
-          class="relative ml-1"
-        >
-          <!-- Unsaved Changes Indicator -->
-          <div
-            v-show="unsavedChanges"
-            class="absolute right-1 h-1.5 w-1.5 rounded-full bg-theme-brand"
-          ></div>
-        </CustomButton>
-        <!-- Edit Toggle -->
-        <Toggle
-          v-if="canModify"
-          label="Edit"
-          :isOn="editMode"
-          class="ml-1"
-          @click="toggleEditModeHandler"
-        />
-      </div>
-    </div>
-
-    <div v-if="isNewNote && editMode && globalStore.config.expirationEnabled" class="mt-3">
-      <ExpirationSelect v-model="expirationPolicy" />
-    </div>
-    <p v-else-if="note.expiration?.mode && note.expiration.mode !== 'none'"
-      class="mt-2 text-xs text-theme-text-muted">
+    <NoteHeader
+      ref="noteHeader"
+      v-model:title="newTitle"
+      :displayTitle="note.title || ''"
+      :editing="editMode"
+      :titleError="titleError"
+      @titleInput="titleError = false"
+    >
+      <NoteToolbar
+        :editing="editMode"
+        :isNew="isNewNote"
+        :canModify="canModify"
+        :consumed="Boolean(note.viewToken)"
+        :showShare="globalStore.config.sharingEnabled && canModify"
+        :showExpiration="globalStore.config.expirationEnabled && canModify"
+        :showProtect="globalStore.config.encryptionEnabled && canModify"
+        :shareActive="shareActive"
+        :expirationActive="expirationActive"
+        :busy="saving"
+        @share="isShareModalVisible = true"
+        @expiration="isExpirationModalVisible = true"
+        @protect="isProtectModalVisible = true"
+        @export="exportMarkdown"
+        @delete="deleteHandler"
+        @cancel="closeHandler"
+        @save="saveHandler(false)"
+        @toggle-edit="toggleEditModeHandler"
+      />
+    </NoteHeader>
+    <p v-if="note.expiration?.mode && note.expiration.mode !== 'none'"
+      class="mb-2 text-xs text-theme-text-muted">
       {{ expirationLabel(note.expiration) }}
     </p>
     <hr v-if="!editMode" class="my-4 border-theme-border" />
@@ -163,7 +132,6 @@
 
 <script setup>
 import { mdiNoteOffOutline } from "@mdi/js";
-import { mdilContentSave, mdilDelete } from "@mdi/light-js";
 import Mousetrap from "mousetrap";
 import { useToast } from "primevue/usetoast";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
@@ -175,6 +143,8 @@ import {
   createNote,
   deleteNote,
   getNote,
+  getPublication,
+  savePublication,
   updateNote,
 } from "../api.js";
 import { Note } from "../classes.js";
@@ -184,8 +154,8 @@ import LoadingIndicator from "../components/LoadingIndicator.vue";
 import ShareModal from "../components/ShareModal.vue";
 import ProtectModal from "../components/ProtectModal.vue";
 import ExpirationModal from "../components/ExpirationModal.vue";
-import ExpirationSelect from "../components/ExpirationSelect.vue";
-import Toggle from "../components/Toggle.vue";
+import NoteToolbar from "../components/NoteToolbar.vue";
+import NoteHeader from "../components/NoteHeader.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
 import { authTypes } from "../constants.js";
@@ -209,6 +179,15 @@ const isShareModalVisible = ref(false);
 const isProtectModalVisible = ref(false);
 const isExpirationModalVisible = ref(false);
 const expirationPolicy = ref("none");
+const stagedShare = ref(null);
+const shareActive = ref(false);
+const saving = ref(false);
+const titleError = ref(false);
+const noteHeader = ref(null);
+const expirationActive = computed(() => {
+  const policy = isNewNote.value ? expirationPolicy.value : note.value.expiration?.policy;
+  return Boolean(policy && policy !== "none");
+});
 const isDraftModalVisible = ref(false);
 const isNewNote = computed(() => !props.title);
 const loadingIndicator = ref();
@@ -231,6 +210,8 @@ function init() {
     getNote(props.title)
       .then((data) => {
         note.value = data;
+        newTitle.value = data.title;
+        refreshShareStatus(data.title);
         loadingIndicator.value.setLoaded();
       })
       .catch((error) => {
@@ -245,7 +226,10 @@ function init() {
       });
   } else {
     newTitle.value = "";
-    expirationPolicy.value = globalStore.config.expirationDefault || "none";
+    stagedShare.value = null;
+    shareActive.value = false;
+    expirationPolicy.value = globalStore.config.expirationEnabled
+      ? globalStore.config.expirationDefault || "none" : "none";
     note.value = new Note();
     // Set the editMode to false to close any existing editors.
     // This ensures the editor is cleanly reinitialised in an empty state.
@@ -259,7 +243,34 @@ function init() {
 }
 
 function onExpirationUpdated(value) {
-  note.value.expiration = value;
+  if (isNewNote.value) expirationPolicy.value = value.policy;
+  else note.value.expiration = value;
+}
+
+function onShareUpdated(settings) {
+  if (isNewNote.value) stagedShare.value = settings;
+  shareActive.value = Boolean(settings?.permission && settings.permission !== "private");
+}
+
+async function refreshShareStatus(title) {
+  if (!globalStore.config.sharingEnabled || !title || note.value.viewToken) return;
+  try {
+    const state = await getPublication(title);
+    if (note.value.title === title) shareActive.value = Boolean(state?.slug);
+  } catch {
+    shareActive.value = false;
+  }
+}
+
+function exportMarkdown() {
+  const body = editMode.value ? toastEditor.value?.getMarkdown() || "" : note.value.content || "";
+  const filename = (editMode.value ? newTitle.value : note.value.title) || "note";
+  const href = URL.createObjectURL(new Blob([body], { type: "text/markdown;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = href;
+  link.download = filename + ".md";
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
 }
 
 function expirationLabel(value) {
@@ -306,6 +317,11 @@ function deleteHandler() {
 }
 
 function deleteConfirmedHandler() {
+  if (isNewNote.value) {
+    clearDraft();
+    router.push({ name: "home" });
+    return;
+  }
   deleteNote(note.value.title)
     .then(() => {
       toast.add(getToastOptions("Note deleted ✓", "Success", "success"));
@@ -322,13 +338,16 @@ function saveHandler(close = false) {
   saveDefaultEditorMode();
 
   // Empty Title Validation
-  if (!newTitle.value) {
+  if (!newTitle.value?.trim()) {
+    titleError.value = true;
+    nextTick(() => noteHeader.value?.focusTitle());
     toast.add(
       getToastOptions("Cannot save note without a title.", "Invalid", "error"),
     );
     return;
   }
 
+  titleError.value = false;
   // Invalid Character Validation
   if (reservedFilenameCharacters.test(newTitle.value)) {
     badFilenameToast("Title");
@@ -344,23 +363,32 @@ function saveHandler(close = false) {
   }
 }
 
-function saveNew(newTitle, newContent, close = false) {
-  createNote(newTitle, newContent, expirationPolicy.value)
-    .then((data) => {
-      clearDraft();
-      note.value = data;
-      router
-        .push({
-          name: "note",
-          params: { title: note.value.title },
-        })
-        .then(() => {
-          // Wait for the route to be updated before setting edit mode to false
-          // as the route is used to determine the action.
-          noteSaveSuccess(close);
-        });
-    })
-    .catch(noteSaveFailure);
+async function saveNew(newTitle, newContent, close = false) {
+  if (saving.value) return;
+  saving.value = true;
+  try {
+    const data = await createNote(newTitle, newContent, expirationPolicy.value);
+    clearDraft();
+    note.value = data;
+    if (stagedShare.value) {
+      try {
+        const published = await savePublication(data.title, stagedShare.value);
+        shareActive.value = Boolean(published?.slug);
+        stagedShare.value = null;
+      } catch {
+        toast.add(getToastOptions(
+          "The note was saved, but sharing could not be activated. Open Share to try again.",
+          "Sharing", "error",
+        ));
+      }
+    }
+    await router.replace({ name: "note", params: { title: note.value.title } });
+    noteSaveSuccess(close);
+  } catch (error) {
+    noteSaveFailure(error);
+  } finally {
+    saving.value = false;
+  }
 }
 
 function saveExisting(newTitle, newContent, close = false) {
@@ -398,6 +426,7 @@ function noteSaveFailure(error) {
 
 function noteSaveSuccess(close = false) {
   unsavedChanges.value = false;
+  editMode.value = false;
   if (close) {
     closeNote();
   }
