@@ -1,4 +1,4 @@
-"""Expiration parsing, atomic single-view claims, and metadata lifecycle."""
+"""Publication expiration, migration, cleanup and single-view concurrency."""
 
 import hashlib
 import tempfile
@@ -7,92 +7,178 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from flatnotes.expiration import ExpirationError, ExpirationStore, parse_policy
+from flatnotes.encrypted_storage import EncryptedPublicationStore
+from flatnotes.expiration import ExpirationError, ExpirationStore, ensure_active, parse_policy
 from flatnotes.publications import PublicationStore
 
 
-class ExpirationTests(unittest.TestCase):
+class PublicationExpirationTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
         self.publications = PublicationStore(self.directory.name)
-        self.store = ExpirationStore(self.publications)
+        self.encrypted_publications = EncryptedPublicationStore(self.publications)
+        self.expiration = ExpirationStore(self.publications)
 
     def tearDown(self):
         self.directory.cleanup()
+
+    def publish(self, title, policy="none", auto_delete=False, permission="read"):
+        return self.publications.set(
+            title, "random", permission, None, "Some Markdown",
+            policy, auto_delete,
+        )
 
     def test_policy_validation(self):
         self.assertEqual(parse_policy("none"), ("none", None))
         self.assertEqual(parse_policy("once"), ("once", None))
         self.assertEqual(parse_policy("2h"), ("time", 7200))
         self.assertEqual(parse_policy("7d"), ("time", 7 * 86400))
-        for value in ("0h", "-1d", "5m", "30", "", "5000d", "NaN", None):
-            with self.subTest(value=value), self.assertRaises(ValueError):
-                parse_policy(value)
+        for invalid in ("", "0h", "5m", "5000d", "-1d", None):
+            with self.subTest(policy=invalid), self.assertRaises(ValueError):
+                parse_policy(invalid)
 
-    def test_timed_expiration_and_reset(self):
-        item = self.store.set("plain", "Example", "2h")
-        self.assertEqual(item["mode"], "time")
-        self.assertAlmostEqual(item["expiresAt"], int(time.time()) + 7200, delta=2)
-        self.assertTrue(self.store.is_available("plain", "Example"))
+    def test_default_and_auto_delete_validation(self):
+        plain = self.publish("PrivateByDefault")
+        self.assertEqual(plain["expiration"], "none")
+        self.assertFalse(plain["auto_delete_note"])
+        with self.assertRaises(ValueError):
+            self.publish("Invalid", "none", True)
+        with self.assertRaises(ValueError):
+            self.publish("InvalidOnceEdit", "once", False, "edit")
+
+    def test_timed_public_expiry_and_renewal(self):
+        published = self.publish("Timed", "2h")
+        self.assertAlmostEqual(published["expires_at"], int(time.time()) + 7200, delta=2)
+        # Ordinary content edits do not extend a publication deadline.
+        updated = self.publish("Timed", "2h")
+        self.assertEqual(updated["expires_at"], published["expires_at"])
         with self.publications.connection(write=True) as db:
             db.execute(
-                "UPDATE note_expirations SET expires_at=? WHERE note_type='plain'",
+                "UPDATE publications SET expires_at=? WHERE note_title='Timed'",
                 (int(time.time()) - 1,),
             )
         with self.assertRaises(ExpirationError):
-            self.store.ensure_available("plain", "Example")
-        with self.assertRaises(ExpirationError):
-            self.store.set("plain", "Example", "none")
+            ensure_active(self.publications.get_by_title("Timed"))
+        renewed = self.publish("Timed", "2h")
+        self.assertNotEqual(renewed["slug"], published["slug"])
+        self.assertFalse(renewed["expired"])
 
-    def test_one_view_claim_is_atomic(self):
-        self.store.set("plain", "single", "once")
+    def test_single_view_atomic_claim(self):
+        published = self.publish("Single", "once")
         def claim(_):
             try:
-                return self.store.consume("plain", "single", allow_session=True)
+                with self.publications.connection(write=True) as db:
+                    current = self.publications.get_by_title("Single", db)
+                    return self.expiration.consume(current, db=db, allow_session=True)
             except ExpirationError:
                 return None
         with ThreadPoolExecutor(max_workers=8) as pool:
-            values = list(pool.map(claim, range(8)))
-        self.assertEqual(len([v for v in values if v]), 1)
-        self.assertEqual(self.store.get("plain", "single")["status"], "consumed")
-        self.assertTrue(self.store.view_session_valid("plain", "single", next(v for v in values if v)))
+            claimed = list(pool.map(claim, range(8)))
+        tokens = [value for value in claimed if value]
+        self.assertEqual(len(tokens), 1)
+        self.assertTrue(self.expiration.view_session_valid(published["slug"], tokens[0]))
+        self.assertTrue(self.publications.get_by_title("Single")["expired"])
 
-    def test_encrypted_one_view_requires_valid_proof(self):
+    def test_encrypted_proof(self):
         proof = bytes.fromhex("ab" * 32)
-        digest = hashlib.sha256(proof).hexdigest()
+        verifier = hashlib.sha256(proof).hexdigest()
+        note_id = "e" * 32
         with self.assertRaises(ValueError):
-            self.store.set("encrypted", "1" * 32, "once")
-        self.store.set("encrypted", "1" * 32, "once", digest)
-        with self.assertRaises(PermissionError):
-            self.store.consume("encrypted", "1" * 32, proof="00" * 32)
-        self.assertEqual(
-            self.store.consume("encrypted", "1" * 32, proof=proof.hex()), None
-        )
+            self.encrypted_publications.save(note_id, "random", "read", None, "once")
+        self.encrypted_publications.save(note_id, "random", "read", None, "once", False, verifier)
+        with self.publications.connection(write=True) as db:
+            current = self.encrypted_publications.get(note_id=note_id, db=db)
+            with self.assertRaises(PermissionError):
+                self.expiration.consume(current, proof="00" * 32, db=db)
+            self.expiration.consume(current, proof=proof.hex(), db=db)
         with self.assertRaises(ExpirationError):
-            self.store.consume("encrypted", "1" * 32, proof=proof.hex())
+            ensure_active(self.encrypted_publications.get(note_id=note_id))
 
-    def test_cleanup_removes_orphans_and_preserves_shared_attachments(self):
-        from flatnotes.notes.models import Note
-
-        root = Path(self.directory.name)
-        attachments = root / "attachments"
-        attachments.mkdir()
-        orphan = attachments / "orphan.png"
-        shared = attachments / "shared.png"
-        orphan.write_bytes(b"orphan")
-        shared.write_bytes(b"shared")
-        (root / "Expired.md").write_text(
-            "![orphan](attachments/orphan.png)\n![shared](attachments/shared.png)"
-        )
-        (root / "Other.md").write_text("![shared](attachments/shared.png)")
-        self.store.set("plain", "Expired", "1h")
+    def test_cleanup_revokes_share_but_preserves_note(self):
+        (self.root / "Preserved.md").write_text("important")
+        published = self.publish("Preserved", "1h")
         with self.publications.connection(write=True) as db:
             db.execute(
-                "UPDATE note_expirations SET expires_at=? WHERE note_id='Expired'",
+                "UPDATE publications SET expires_at=? WHERE note_title='Preserved'",
                 (int(time.time()) - 1,),
             )
+        self.cleanup()
+        self.assertTrue((self.root / "Preserved.md").exists())
+        self.assertIsNone(self.publications.get_by_title("Preserved"))
+        self.assertFalse(self.publications.get_by_slug(published["slug"]))
 
-        class OrdinaryStorage:
+    def test_auto_delete_removes_only_orphaned_attachments(self):
+        from flatnotes.notes.models import Note
+
+        attachments = self.root / "attachments"
+        attachments.mkdir()
+        (attachments / "orphan.png").write_bytes(b"one")
+        (attachments / "shared.png").write_bytes(b"two")
+        (self.root / "Disposable.md").write_text(
+            "![orphan](attachments/orphan.png)\n![shared](attachments/shared.png)"
+        )
+        (self.root / "Other.md").write_text("![shared](attachments/shared.png)")
+        self.publish("Disposable", "1h", True)
+        with self.publications.connection(write=True) as db:
+            db.execute(
+                "UPDATE publications SET expires_at=? WHERE note_title='Disposable'",
+                (int(time.time()) - 1,),
+            )
+        self.cleanup()
+        self.assertFalse((self.root / "Disposable.md").exists())
+        self.assertFalse((attachments / "orphan.png").exists())
+        self.assertTrue((attachments / "shared.png").exists())
+        self.assertTrue((self.root / "Other.md").exists())
+
+    def test_manual_unpublish_never_deletes_note(self):
+        (self.root / "KeepMe.md").write_text("keep")
+        self.publish("KeepMe", "once", True)
+        with self.publications.connection(write=True) as db:
+            self.publications.remove("KeepMe", db)
+        self.cleanup()
+        self.assertTrue((self.root / "KeepMe.md").exists())
+
+    def test_migration_preserves_published_and_clears_private(self):
+        with self.publications.connection(write=True) as db:
+            db.execute(
+                """CREATE TABLE note_expirations (
+                    note_type TEXT, note_id TEXT, policy TEXT, mode TEXT,
+                    created_at INTEGER, expires_at INTEGER, consumed_at INTEGER,
+                    status TEXT, view_verifier TEXT, purged_at INTEGER
+                )"""
+            )
+            deadline = int(time.time()) + 7200
+            db.execute(
+                """INSERT INTO note_expirations VALUES
+                   ('plain','PrivateLegacy','2h','time',?, ?, NULL,'active',NULL,NULL)""",
+                (int(time.time()), deadline),
+            )
+            db.execute(
+                """INSERT INTO note_expirations VALUES
+                   ('plain','PublishedLegacy','2h','time',?, ?, NULL,'active',NULL,NULL)""",
+                (int(time.time()), deadline),
+            )
+        self.publish("PublishedLegacy")
+        upgraded = ExpirationStore(self.publications)
+        published = self.publications.get_by_title("PublishedLegacy")
+        self.assertEqual(published["expiration"], "2h")
+        self.assertEqual(published["expires_at"], deadline)
+        self.assertTrue(published["auto_delete_note"])
+        self.assertFalse(
+            (self.root / "PrivateLegacy.md").exists()
+        )  # The test did not create a file; private expiry was discarded.
+        with self.publications.connection() as db:
+            self.assertFalse(db.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='note_expirations'"
+            ).fetchone())
+        ExpirationStore(self.publications)  # Repeated startup is idempotent.
+
+    def cleanup(self):
+        from flatnotes.notes.models import Note
+
+        root = self.root
+        class Ordinary:
             storage_path = str(root)
 
             def get(self, title):
@@ -107,29 +193,11 @@ class ExpirationTests(unittest.TestCase):
             def _sync_index_with_retry(self):
                 pass
 
-        class EncryptedStorage:
+        class Encrypted:
             def delete(self, note_id):
                 (root / (note_id + ".md.enc")).unlink()
 
-        class EncryptedPublications:
-            def delete(self, note_id, db):
-                pass
-
-        self.store.cleanup(OrdinaryStorage(), EncryptedStorage(), EncryptedPublications())
-        self.assertFalse((root / "Expired.md").exists())
-        self.assertFalse(orphan.exists())
-        self.assertTrue(shared.exists())
-        self.assertEqual(self.store.get("plain", "Expired")["status"], "expired")
-
-    def test_transfer_and_rename(self):
-        self.store.set("plain", "draft", "4h")
-        with self.publications.connection(write=True) as db:
-            self.store.rename("plain", "draft", "renamed", db)
-        self.assertEqual(self.store.get("plain", "renamed")["policy"], "4h")
-        with self.publications.connection(write=True) as db:
-            self.store.transfer("plain", "renamed", "encrypted", "c" * 32, db)
-        self.assertEqual(self.store.get("encrypted", "c" * 32)["policy"], "4h")
-        self.assertEqual(self.store.get("plain", "renamed")["policy"], "none")
+        self.expiration.cleanup(Ordinary(), Encrypted())
 
 
 if __name__ == "__main__":

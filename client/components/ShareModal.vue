@@ -34,6 +34,10 @@
       <p v-if="draft" class="mb-4 text-sm text-theme-text-muted">
         Sharing will be activated after the first successful note save.
       </p>
+      <p v-else-if="published?.expired" class="mb-4 text-sm text-theme-danger">
+        This link has expired. Saving again creates a new random link, or choose
+        a different custom URL suffix to renew sharing.
+      </p>
       <div v-if="!draft && previewSlug" class="mb-4 break-all rounded bg-theme-background-elevated p-3 text-sm">
         <div class="mb-1 text-theme-text-muted">Link preview</div>
         <a class="underline" :href="previewUrl" target="_blank" rel="noopener noreferrer">
@@ -41,9 +45,28 @@
         </a>
       </div>
       <p v-else-if="!draft" class="mb-4 text-sm text-theme-text-muted">
-        Save to generate a random public link.
+        Save to generate a public link.
       </p>
 
+      <ExpirationSelect v-model="expiration" :allowSingleView="access === 'read'" class="mb-4" />
+      <label v-if="expiration !== 'none'" class="mb-3 flex items-start gap-2 text-sm">
+        <input
+          v-model="autoDeleteNote"
+          type="checkbox"
+          class="mt-1"
+        />
+        <span>
+          Automatically delete this note when the share expires
+          <span class="mt-1 block text-xs text-theme-text-muted">
+            Permanently deletes the original note after expiration. Leave unchecked to retain it.
+          </span>
+        </span>
+      </label>
+
+      <p v-if="expiration === 'once'" class="mb-3 text-xs text-theme-text-muted">
+        The first recipient to open this shared link consumes its single view.
+        Private owner access does not consume the link.
+      </p>
       <p v-if="access === 'edit'" class="mb-4 text-sm text-theme-danger">
         Anyone with this link can change the note content. Edits cannot be attributed to an individual.
       </p>
@@ -57,7 +80,7 @@
     <div class="flex flex-wrap justify-end gap-2">
       <CustomButton v-if="published && !draft" label="Unpublish" style="danger" :disabled="busy" @click="unpublish" />
       <CustomButton
-        v-if="published && access !== 'private' && previewSlug === published.slug"
+        v-if="published && !published.expired && access !== 'private' && previewSlug === published.slug"
         label="Copy link"
         :disabled="busy || !previewSlug"
         @click="copyLink"
@@ -76,6 +99,7 @@ import {
   getEncryptedPublication, removeEncryptedPublication, saveEncryptedPublication,
 } from "../api.js";
 import CustomButton from "./CustomButton.vue";
+import ExpirationSelect from "./ExpirationSelect.vue";
 import Modal from "./Modal.vue";
 import TextInput from "./TextInput.vue";
 
@@ -84,6 +108,7 @@ const props = defineProps({
   encryptedId: String,
   draft: { type: Boolean, default: false },
   initialSettings: { type: Object, default: null },
+  getVerifier: { type: Function, default: null },
 });
 const emit = defineEmits(["updated"]);
 const isVisible = defineModel({ type: Boolean });
@@ -92,8 +117,18 @@ const published = ref(null);
 const access = ref("private");
 const slugMode = ref("random");
 const customSlug = ref("");
+const expiration = ref("none");
+const autoDeleteNote = ref(false);
 const errorMessage = ref("");
 const busy = ref(false);
+
+watch(access, (value) => {
+  if (value === "edit" && expiration.value === "once") expiration.value = "none";
+  if (value === "private") autoDeleteNote.value = false;
+});
+watch(expiration, (value) => {
+  if (value === "none") autoDeleteNote.value = false;
+});
 
 function slugify(title) {
   return (title || "")
@@ -109,28 +144,30 @@ function slugify(title) {
 const previewSlug = computed(() => {
   if (access.value === "private") return "";
   if (slugMode.value === "custom") return customSlug.value.trim().toLowerCase();
-  if (published.value && published.value.slugMode === slugMode.value) {
+  if (published.value && published.value.slugMode === slugMode.value && !published.value.expired) {
     return published.value.slug;
   }
   return slugMode.value === "title" ? slugify(props.title) : "";
 });
 
-const previewUrl = computed(() => {
-  if (!previewSlug.value) return "";
-  return window.location.origin + router.resolve({
+const previewUrl = computed(() => previewSlug.value
+  ? window.location.origin + router.resolve({
     name: "publicNote", params: { slug: previewSlug.value },
-  }).href;
-});
+  }).href
+  : "",
+);
 
 async function load() {
   busy.value = true;
   errorMessage.value = "";
   if (props.draft) {
     published.value = null;
-    access.value = props.initialSettings?.permission || "private";
-    slugMode.value = props.initialSettings?.slugMode || "random";
-    customSlug.value = props.initialSettings?.slugMode === "custom"
-      ? props.initialSettings.slug || "" : "";
+    const settings = props.initialSettings;
+    access.value = settings?.permission || "private";
+    slugMode.value = settings?.slugMode || "random";
+    customSlug.value = settings?.slugMode === "custom" ? settings.slug || "" : "";
+    expiration.value = settings?.expiration || "none";
+    autoDeleteNote.value = Boolean(settings?.autoDeleteNote);
     busy.value = false;
     return;
   }
@@ -141,6 +178,8 @@ async function load() {
     access.value = published.value?.permission || "private";
     slugMode.value = published.value?.slugMode || "random";
     customSlug.value = published.value?.slugMode === "custom" ? published.value.slug : "";
+    expiration.value = published.value?.expiration || "none";
+    autoDeleteNote.value = Boolean(published.value?.autoDeleteNote);
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Failed to load publication settings.";
   } finally {
@@ -153,33 +192,36 @@ async function save() {
   busy.value = true;
   errorMessage.value = "";
   try {
-    if (props.draft) {
-      if (access.value !== "private" && slugMode.value !== "random") {
-        const slug = slugMode.value === "title"
-          ? slugify(props.title) : customSlug.value.trim().toLowerCase();
-        if (!/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(slug)) {
-          throw new Error("Enter a valid public URL suffix before saving.");
-        }
-      }
-      emit("updated", access.value === "private" ? null : {
-        slugMode: slugMode.value,
-        slug: slugMode.value === "custom" ? customSlug.value.trim() : null,
-        permission: access.value,
-      });
+    if (access.value === "private") {
+      if (!props.draft) await unpublish(true);
+      else emit("updated", null);
       isVisible.value = false;
       return;
     }
-    published.value = await (props.encryptedId
-      ? saveEncryptedPublication(props.encryptedId, {
-        slugMode: slugMode.value, slug: slugMode.value === "custom" ? customSlug.value : null,
-        permission: access.value,
-      })
-      : savePublication(props.title, {
+    if (slugMode.value !== "random") {
+      const suffix = slugMode.value === "title" ? slugify(props.title) : customSlug.value.trim().toLowerCase();
+      if (!/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(suffix)) {
+        throw new Error("Enter a valid public URL suffix before saving.");
+      }
+    }
+    const settings = {
       slugMode: slugMode.value,
-      slug: slugMode.value === "custom" ? customSlug.value : null,
+      slug: slugMode.value === "custom" ? customSlug.value.trim() : null,
       permission: access.value,
-    }));
-    emit("updated", published.value);
+      expiration: expiration.value,
+      autoDeleteNote: expiration.value !== "none" && autoDeleteNote.value,
+    };
+    if (props.draft) {
+      emit("updated", settings);
+    } else {
+      if (props.encryptedId && expiration.value === "once") {
+        settings.viewVerifier = await props.getVerifier?.();
+      }
+      published.value = await (props.encryptedId
+        ? saveEncryptedPublication(props.encryptedId, settings)
+        : savePublication(props.title, settings));
+      emit("updated", published.value);
+    }
     isVisible.value = false;
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || error.message || "Failed to publish this note.";
@@ -188,8 +230,9 @@ async function save() {
   }
 }
 
-async function unpublish() {
-  if (busy.value || !window.confirm("Remove public access to this note?")) return;
+async function unpublish(fromSave = false) {
+  if (busy.value && !fromSave) return;
+  if (!fromSave && !window.confirm("Remove public access to this note?")) return;
   busy.value = true;
   errorMessage.value = "";
   try {
@@ -197,9 +240,12 @@ async function unpublish() {
     else await removePublication(props.title);
     published.value = null;
     access.value = "private";
+    expiration.value = "none";
+    autoDeleteNote.value = false;
     emit("updated", null);
   } catch (error) {
     errorMessage.value = error.response?.data?.detail || "Failed to unpublish this note.";
+    if (fromSave) throw error;
   } finally {
     busy.value = false;
   }

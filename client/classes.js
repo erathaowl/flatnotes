@@ -5,8 +5,6 @@ class Note {
     this.title = note?.title;
     this.lastModified = note?.lastModified;
     this.content = note?.content;
-    this.expiration = note?.expiration || { mode: "none", policy: "none", status: "active" };
-    this.viewToken = note?.viewToken || null;
   }
 
   get lastModifiedAsDate() {

@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 from flatnotes.helpers import is_valid_filename
+from flatnotes.expiration import configure, ensure_columns, is_expired, public_info
 
 SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$")
 ATTACHMENT_PATTERN = re.compile(
@@ -76,6 +77,8 @@ class PublicationStore:
                 PRAGMA user_version=1;
                 """
             )
+        with self.connection(write=True) as db:
+            ensure_columns(db)
 
     @contextmanager
     def connection(self, write=False):
@@ -102,7 +105,7 @@ class PublicationStore:
         row = db.execute(
             "SELECT * FROM publications WHERE note_title = ?", (title,)
         ).fetchone()
-        return dict(row) if row else None
+        return public_info(row) if row else None
 
     def get_by_slug(self, slug, db=None):
         if db is None:
@@ -111,15 +114,17 @@ class PublicationStore:
         row = db.execute(
             "SELECT * FROM publications WHERE slug = ?", (slug,)
         ).fetchone()
-        return dict(row) if row else None
+        return public_info(row) if row else None
 
-    def set(self, title, slug_mode, permission, requested_slug, content):
+    def set(self, title, slug_mode, permission, requested_slug, content,
+            expiration="none", auto_delete_note=False, view_verifier=None):
         with self.connection(write=True) as db:
             current = self.get_by_title(title, db)
+            expired = is_expired(current)
             if slug_mode == "random":
                 slug = (
                     current["slug"]
-                    if current and current["slug_mode"] == slug_mode
+                    if current and current["slug_mode"] == slug_mode and not expired
                     else secrets.token_hex(16)
                 )
             elif slug_mode == "title":
@@ -131,6 +136,8 @@ class PublicationStore:
             else:
                 slug = (requested_slug or "").strip().lower()
 
+            if expired and slug == current["slug"]:
+                raise ValueError("Expired links require a new URL; choose a different suffix")
             if not SLUG_PATTERN.fullmatch(slug):
                 raise ValueError(
                     "Invalid slug. Use 1-80 lowercase letters, digits or hyphens."
@@ -160,6 +167,10 @@ class PublicationStore:
             except sqlite3.IntegrityError as error:
                 raise SlugConflictError("Public URL is already in use.") from error
 
+            configure(
+                db, "plain", title, expiration, auto_delete_note,
+                view_verifier, current if current and slug == current["slug"] else None,
+            )
             # Only owner-controlled operations may expand the attachment allowlist.
             if not current:
                 self.sync_attachments(publication_id, content, db)

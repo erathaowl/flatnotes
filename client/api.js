@@ -90,12 +90,11 @@ export async function getNotes(term, sort, order, limit) {
   }
 }
 
-export async function createNote(title, content, expiration = null) {
+export async function createNote(title, content) {
   try {
     const response = await api.post("api/notes", {
       title: title,
       content: content,
-      expiration,
     });
     return new Note(response.data);
   } catch (response) {
@@ -211,7 +210,7 @@ export async function fetchEncryptedNote(noteId, slug = null) {
   };
 }
 
-export async function saveEncryptedNote(noteId, ciphertext, revision, slug = null, expiration = null, verifier = null) {
+export async function saveEncryptedNote(noteId, ciphertext, revision, slug = null) {
   const path = slug
     ? "api/public/encrypted-notes/" + encodeURIComponent(slug)
     : "api/encrypted-notes/" + encodeURIComponent(noteId);
@@ -219,14 +218,12 @@ export async function saveEncryptedNote(noteId, ciphertext, revision, slug = nul
     headers: {
       "Content-Type": "application/octet-stream",
       "X-Revision": revision,
-      ...(expiration !== null ? { "X-Expiration": expiration } : {}),
-      ...(verifier ? { "X-View-Verifier": verifier } : {}),
     },
   });
   return response.data;
 }
 
-export async function protectPlainNote(title, noteId, ciphertext, lastModified, verifier = null) {
+export async function protectPlainNote(title, noteId, ciphertext, lastModified) {
   const response = await api.post(
     "api/encrypted-notes/protect/" + encodeURIComponent(title) + "/" + noteId,
     ciphertext,
@@ -234,7 +231,6 @@ export async function protectPlainNote(title, noteId, ciphertext, lastModified, 
       headers: {
         "Content-Type": "application/octet-stream",
         "X-Source-Modified": String(lastModified),
-        ...(verifier ? { "X-View-Verifier": verifier } : {}),
       },
     },
   );
@@ -260,32 +256,11 @@ export async function removeEncryptedPublication(noteId) {
 }
 
 
-// Lifecycle API exposes only policy metadata and opaque note identifiers.
-export async function listExpiringNotes() {
-  const response = await api.get("api/expiring-notes");
-  return response.data;
-}
-
-export async function getNoteExpiration(kind, noteId) {
-  const path = kind === "encrypted"
-    ? "api/encrypted-notes/" + encodeURIComponent(noteId)
-    : "api/notes/" + encodeURIComponent(noteId);
-  const response = await api.get(path + "/expiration");
-  return response.data;
-}
-
-export async function setNoteExpiration(kind, noteId, policy, verifier = null) {
-  const path = kind === "encrypted"
-    ? "api/encrypted-notes/" + encodeURIComponent(noteId)
-    : "api/notes/" + encodeURIComponent(noteId);
-  const response = await api.put(path + "/expiration", { policy, verifier });
-  return response.data;
-}
-
-export async function consumeEncryptedView(noteId, proof, slug = null) {
-  const path = slug
-    ? "api/public/encrypted-notes/" + encodeURIComponent(slug) + "/view"
-    : "api/encrypted-notes/" + encodeURIComponent(noteId) + "/view";
-  const response = await api.post(path, { proof });
+// Only public encrypted links use a single-view claim.
+export async function consumeEncryptedView(slug, proof) {
+  const response = await api.post(
+    "api/public/encrypted-notes/" + encodeURIComponent(slug) + "/view",
+    { proof },
+  );
   return response.data;
 }

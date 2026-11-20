@@ -10,14 +10,6 @@
       @click="$emit('share')"
     />
     <CustomButton
-      v-if="showExpiration"
-      :iconPath="mdilClock"
-      label="Expiration"
-      :style="expirationActive ? 'active' : 'subtle'"
-      :disabled="busy || !canModify || consumed"
-      @click="$emit('expiration')"
-    />
-    <CustomButton
       v-if="showProtect"
       :iconPath="mdilLock"
       label="Protect"
@@ -73,7 +65,7 @@
 
 <script setup>
 import {
-  mdilCancel, mdilClock, mdilContentSave, mdilDelete,
+  mdilCancel, mdilContentSave, mdilDelete,
   mdilDownload, mdilLink, mdilLock, mdilPaperclip,
 } from "@mdi/light-js";
 
@@ -87,17 +79,15 @@ defineProps({
   canModify: { type: Boolean, default: true },
   consumed: { type: Boolean, default: false },
   showShare: { type: Boolean, default: false },
-  showExpiration: { type: Boolean, default: false },
   showProtect: { type: Boolean, default: false },
   showExport: { type: Boolean, default: true },
   showDelete: { type: Boolean, default: true },
   shareActive: { type: Boolean, default: false },
-  expirationActive: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
 });
 
 defineEmits([
-  "lock", "share", "expiration", "protect", "export",
+  "lock", "share", "protect", "export",
   "delete", "attach", "cancel", "save", "toggle-edit",
 ]);
 </script>

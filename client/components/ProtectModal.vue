@@ -52,7 +52,6 @@ const props = defineProps({
   sourceTitle: String,
   lastModified: Number,
   newNote: { type: Boolean, default: false },
-  expirationPolicy: { type: String, default: "none" },
   pendingShare: { type: Object, default: null },
 });
 const isVisible = defineModel({ type: Boolean });
@@ -89,14 +88,15 @@ async function protect() {
       noteId, password.value, props.title, props.content || "",
     );
     if (props.newNote) {
-      const policy = globalStore.config.expirationEnabled ? props.expirationPolicy : "none";
-      const verifier = policy === "once" ? await cryptoSession.viewVerifier() : null;
-      await saveEncryptedNote(noteId, ciphertext, "*", null, policy, verifier);
+      await saveEncryptedNote(noteId, ciphertext, "*");
       if (props.pendingShare) {
         try {
           const settings = props.pendingShare.slugMode === "title"
             ? { ...props.pendingShare, slugMode: "random", slug: null }
             : props.pendingShare;
+          if (settings.expiration === "once") {
+            settings.viewVerifier = await cryptoSession.viewVerifier();
+          }
           await saveEncryptedPublication(noteId, settings);
         } catch {
           // Keep the encrypted note even if the optional publication fails.
@@ -104,9 +104,8 @@ async function protect() {
         }
       }
     } else {
-      const verifier = props.expirationPolicy === "once" ? await cryptoSession.viewVerifier() : null;
       await protectPlainNote(
-        props.sourceTitle || props.title, noteId, ciphertext, props.lastModified, verifier,
+        props.sourceTitle || props.title, noteId, ciphertext, props.lastModified,
       );
     }
     password.value = "";

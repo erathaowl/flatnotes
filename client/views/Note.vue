@@ -46,15 +46,6 @@
     :initialSettings="stagedShare"
     @updated="onShareUpdated"
   />
-  <ExpirationModal
-    v-if="globalStore.config.expirationEnabled"
-    v-model="isExpirationModalVisible"
-    kind="plain"
-    :noteId="note.title || ''"
-    :draft="isNewNote"
-    :initialPolicy="expirationPolicy"
-    @updated="onExpirationUpdated"
-  />
   <ProtectModal
     v-if="globalStore.config.encryptionEnabled"
     v-model="isProtectModalVisible"
@@ -63,7 +54,6 @@
     :sourceTitle="note.title"
     :lastModified="note.lastModified"
     :newNote="isNewNote"
-    :expirationPolicy="isNewNote ? expirationPolicy : note.expiration?.policy || 'none'"
     :pendingShare="isNewNote ? stagedShare : null"
     @protected="clearProtectedDraft"
   />
@@ -81,15 +71,11 @@
         :editing="editMode"
         :isNew="isNewNote"
         :canModify="canModify"
-        :consumed="Boolean(note.viewToken)"
         :showShare="globalStore.config.sharingEnabled && canModify"
-        :showExpiration="globalStore.config.expirationEnabled && canModify"
         :showProtect="globalStore.config.encryptionEnabled && canModify"
         :shareActive="shareActive"
-        :expirationActive="expirationActive"
         :busy="saving"
         @share="isShareModalVisible = true"
-        @expiration="isExpirationModalVisible = true"
         @protect="openProtect"
         @export="exportMarkdown"
         @delete="deleteHandler"
@@ -98,10 +84,6 @@
         @toggle-edit="toggleEditModeHandler"
       />
     </NoteHeader>
-    <p v-if="note.expiration?.mode && note.expiration.mode !== 'none'"
-      class="mb-2 text-xs text-theme-text-muted">
-      {{ expirationLabel(note.expiration) }}
-    </p>
     <hr v-if="!editMode" class="my-4 border-theme-border" />
 
     <!-- Content -->
@@ -157,7 +139,6 @@ import CustomButton from "../components/CustomButton.vue";
 import LoadingIndicator from "../components/LoadingIndicator.vue";
 import ShareModal from "../components/ShareModal.vue";
 import ProtectModal from "../components/ProtectModal.vue";
-import ExpirationModal from "../components/ExpirationModal.vue";
 import NoteToolbar from "../components/NoteToolbar.vue";
 import NoteHeader from "../components/NoteHeader.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
@@ -172,7 +153,7 @@ const props = defineProps({
 });
 
 const canModify = computed(
-  () => globalStore.config.authType != authTypes.readOnly && !note.value.viewToken,
+  () => globalStore.config.authType != authTypes.readOnly,
 );
 let contentChangedTimeout = null;
 const editMode = ref(false);
@@ -181,18 +162,12 @@ const isSaveChangesModalVisible = ref(false);
 const isDeleteModalVisible = ref(false);
 const isShareModalVisible = ref(false);
 const isProtectModalVisible = ref(false);
-const isExpirationModalVisible = ref(false);
-const expirationPolicy = ref("none");
 const stagedShare = ref(null);
 const shareActive = ref(false);
 const saving = ref(false);
 const titleError = ref(false);
 const noteHeader = ref(null);
 const protectPayload = ref({ title: "", content: "" });
-const expirationActive = computed(() => {
-  const policy = isNewNote.value ? expirationPolicy.value : note.value.expiration?.policy;
-  return Boolean(policy && policy !== "none");
-});
 const isDraftModalVisible = ref(false);
 const isNewNote = computed(() => !props.title);
 const loadingIndicator = ref();
@@ -220,9 +195,7 @@ function init() {
         loadingIndicator.value.setLoaded();
       })
       .catch((error) => {
-        if (error.response?.status === 410) {
-          loadingIndicator.value.setFailed("Note expired or already viewed", mdiNoteOffOutline);
-        } else if (error.response?.status === 404) {
+        if (error.response?.status === 404) {
           loadingIndicator.value.setFailed("Note not found", mdiNoteOffOutline);
         } else {
           loadingIndicator.value.setFailed();
@@ -233,8 +206,6 @@ function init() {
     newTitle.value = "";
     stagedShare.value = null;
     shareActive.value = false;
-    expirationPolicy.value = globalStore.config.expirationEnabled
-      ? globalStore.config.expirationDefault || "none" : "none";
     note.value = new Note();
     // Set the editMode to false to close any existing editors.
     // This ensures the editor is cleanly reinitialised in an empty state.
@@ -261,21 +232,16 @@ function openProtect() {
   isProtectModalVisible.value = true;
 }
 
-function onExpirationUpdated(value) {
-  if (isNewNote.value) expirationPolicy.value = value.policy;
-  else note.value.expiration = value;
-}
-
 function onShareUpdated(settings) {
   if (isNewNote.value) stagedShare.value = settings;
-  shareActive.value = Boolean(settings?.permission && settings.permission !== "private");
+  shareActive.value = Boolean(settings?.permission && settings.permission !== "private" && !settings?.expired);
 }
 
 async function refreshShareStatus(title) {
-  if (!globalStore.config.sharingEnabled || !title || note.value.viewToken) return;
+  if (!globalStore.config.sharingEnabled || !title) return;
   try {
     const state = await getPublication(title);
-    if (note.value.title === title) shareActive.value = Boolean(state?.slug);
+    if (note.value.title === title) shareActive.value = Boolean(state?.slug && !state?.expired);
   } catch {
     shareActive.value = false;
   }
@@ -290,15 +256,6 @@ function exportMarkdown() {
   link.download = filename + ".md";
   link.click();
   setTimeout(() => URL.revokeObjectURL(href), 1000);
-}
-
-function expirationLabel(value) {
-  if (value.mode === "once") {
-    return note.value.viewToken ? "Single view consumed" : "Single view on next opening";
-  }
-  return value.expiresAt
-    ? "Expires " + new Date(value.expiresAt * 1000).toLocaleString()
-    : "";
 }
 
 // Note Editing
@@ -386,13 +343,13 @@ async function saveNew(newTitle, newContent, close = false) {
   if (saving.value) return;
   saving.value = true;
   try {
-    const data = await createNote(newTitle, newContent, expirationPolicy.value);
+    const data = await createNote(newTitle, newContent);
     clearDraft();
     note.value = data;
     if (stagedShare.value) {
       try {
         const published = await savePublication(data.title, stagedShare.value);
-        shareActive.value = Boolean(published?.slug);
+        shareActive.value = Boolean(published?.slug && !published?.expired);
         stagedShare.value = null;
       } catch {
         shareActive.value = false;

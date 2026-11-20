@@ -1,15 +1,5 @@
 <template>
   <div class="mx-auto w-full max-w-4xl flex-1">
-    <ExpirationModal
-      v-if="!publicSlug && unlocked && globalStore.config.expirationEnabled"
-      v-model="showExpiration"
-      kind="encrypted"
-      :noteId="activeId"
-      :getVerifier="getViewVerifier"
-      :draft="isNew"
-      :initialPolicy="expirationPolicy"
-      @updated="onExpirationUpdated"
-    />
     <ShareModal
       v-if="!publicSlug && unlocked && globalStore.config.sharingEnabled"
       v-model="showSharing"
@@ -17,6 +7,7 @@
       :title="title"
       :draft="isNew"
       :initialSettings="stagedShare"
+      :getVerifier="getViewVerifier"
       @updated="onShareUpdated"
     />
 
@@ -81,13 +72,10 @@
           :showExport="!publicSlug"
           :showDelete="!publicSlug"
           :showShare="!publicSlug && globalStore.config.sharingEnabled"
-          :showExpiration="!publicSlug && globalStore.config.expirationEnabled && !consumedView"
           :shareActive="shareActive"
-          :expirationActive="expirationActive"
           :busy="busy"
           @lock="confirmAndLock"
           @share="showSharing = true"
-          @expiration="showExpiration = true"
           @export="exportMarkdown"
           @delete="remove"
           @attach="fileInput?.click()"
@@ -97,10 +85,10 @@
         />
       </NoteHeader>
       <input ref="fileInput" type="file" class="hidden" @change="attachFile" />
-      <p v-if="currentExpiration.mode !== 'none'" class="mb-2 text-xs text-theme-text-muted">
-        {{ currentExpiration.mode === "once"
-          ? (consumedView ? "Single view consumed" : "Single view on next opening")
-          : (isNew ? "Expires after the first save" : "Expires " + new Date(currentExpiration.expiresAt * 1000).toLocaleString()) }}
+      <p v-if="publicSlug && expiration.mode !== 'none'" class="mb-2 text-xs text-theme-text-muted">
+        {{ expiration.mode === "once"
+          ? "This shared link can be viewed only once."
+          : "Sharing expires " + new Date(expiration.expiresAt * 1000).toLocaleString() }}
       </p>
       <hr class="mb-4 border-theme-border" />
       <p v-if="message" role="alert" class="mb-3 text-theme-danger">{{ message }}</p>
@@ -151,7 +139,6 @@ import {
 } from "../api.js";
 import CustomButton from "../components/CustomButton.vue";
 import ShareModal from "../components/ShareModal.vue";
-import ExpirationModal from "../components/ExpirationModal.vue";
 import NoteHeader from "../components/NoteHeader.vue";
 import NoteToolbar from "../components/NoteToolbar.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
@@ -176,13 +163,11 @@ const loading = ref(true);
 const busy = ref(false);
 const editing = ref(false);
 const showSharing = ref(false);
-const showExpiration = ref(false);
 const stagedShare = ref(null);
 const shareActive = ref(false);
 const savedTitle = ref("");
 const noteHeader = ref(null);
 const expiration = ref({ mode: "none", policy: "none", expiresAt: null });
-const expirationPolicy = ref("none");
 const consumedView = ref(false);
 const message = ref("");
 const loadError = ref("");
@@ -195,13 +180,6 @@ let savedAttachments = [];
 let cryptoSession = null;
 
 const isNew = computed(() => props.id === "new" && !props.publicSlug);
-const currentExpiration = computed(() => isNew.value
-  ? { mode: expirationPolicy.value === "none" || expirationPolicy.value === "once"
-      ? expirationPolicy.value : "time", policy: expirationPolicy.value }
-  : expiration.value);
-const expirationActive = computed(() =>
-  currentExpiration.value.policy !== "none",
-);
 const canEdit = computed(() =>
   (!props.publicSlug || permission.value === "edit") &&
   globalStore.config.authType !== "read_only" &&
@@ -217,8 +195,6 @@ async function load() {
   lock();
   loading.value = true;
   loadError.value = "";
-  expirationPolicy.value = globalStore.config.expirationEnabled
-    ? globalStore.config.expirationDefault || "none" : "none";
   stagedShare.value = null;
   shareActive.value = false;
   if (isNew.value) {
@@ -234,7 +210,7 @@ async function load() {
     activeId.value = result.noteId;
     revision.value = result.revision;
     permission.value = result.permission;
-    expiration.value = result.expiration;
+    expiration.value = props.publicSlug ? result.expiration : { mode: "none", policy: "none", expiresAt: null };
   } catch (error) {
     loadError.value = error.response?.status === 404
       ? "This encrypted note is not available."
@@ -251,9 +227,9 @@ async function unlock() {
   cryptoSession = new EncryptedSession();
   try {
     const note = await cryptoSession.unlock(activeId.value, password.value, ciphertext.value);
-    if (expiration.value.mode === "once") {
+    if (props.publicSlug && expiration.value.mode === "once") {
       const proof = await cryptoSession.viewProof();
-      await consumeEncryptedView(activeId.value, proof, props.publicSlug);
+      await consumeEncryptedView(props.publicSlug, proof);
       consumedView.value = true;
     }
     title.value = note.title;
@@ -265,7 +241,7 @@ async function unlock() {
     if (!props.publicSlug && globalStore.config.sharingEnabled) {
       try {
         const publication = await getEncryptedPublication(activeId.value);
-        shareActive.value = Boolean(publication?.slug);
+        shareActive.value = Boolean(publication?.slug && !publication?.expired);
       } catch {
         shareActive.value = false;
       }
@@ -334,31 +310,25 @@ async function save() {
     const firstSave = isNew.value;
     const markdown = editor.value.getMarkdown();
     const encryptedData = await cryptoSession.save(title.value.trim(), markdown, attachments.value);
-    const newPolicy = isNew.value && globalStore.config.expirationEnabled
-      ? expirationPolicy.value : null;
-    const verifier = newPolicy === "once" ? await cryptoSession.viewVerifier() : null;
     const result = await saveEncryptedNote(
       activeId.value, encryptedData, revision.value || "*", props.publicSlug,
-      newPolicy, verifier,
     );
     content.value = markdown;
     savedTitle.value = title.value.trim();
     savedAttachments = copyAttachments(attachments.value);
     ciphertext.value = encryptedData;
     revision.value = result.revision;
-    if (newPolicy) {
-      expiration.value = { mode: newPolicy === "once" ? "once" : newPolicy === "none" ? "none" : "time",
-        policy: newPolicy, expiresAt: newPolicy === "none" || newPolicy === "once"
-          ? null : Math.floor(Date.now() / 1000) + Number(newPolicy.slice(0, -1)) *
-          (newPolicy.endsWith("h") ? 3600 : 86400) };
-    }
     editing.value = false;
     if (firstSave) {
       await router.replace({ name: "encryptedNote", params: { id: activeId.value } });
       if (stagedShare.value) {
         try {
-          const publication = await saveEncryptedPublication(activeId.value, stagedShare.value);
-          shareActive.value = Boolean(publication?.slug);
+          const settings = { ...stagedShare.value };
+          if (settings.expiration === "once") {
+            settings.viewVerifier = await cryptoSession.viewVerifier();
+          }
+          const publication = await saveEncryptedPublication(activeId.value, settings);
+          shareActive.value = Boolean(publication?.slug && !publication?.expired);
           stagedShare.value = null;
         } catch {
           shareActive.value = false;
@@ -396,7 +366,6 @@ function lock() {
   unlocked.value = false;
   editing.value = false;
   showSharing.value = false;
-  showExpiration.value = false;
   stagedShare.value = null;
   shareActive.value = false;
   consumedView.value = false;
@@ -409,14 +378,9 @@ function getViewVerifier() {
   return cryptoSession.viewVerifier();
 }
 
-function onExpirationUpdated(value) {
-  if (isNew.value) expirationPolicy.value = value.policy;
-  else expiration.value = value;
-}
-
 function onShareUpdated(value) {
   if (isNew.value) stagedShare.value = value;
-  shareActive.value = Boolean(value?.permission && value.permission !== "private");
+  shareActive.value = Boolean(value?.permission && value.permission !== "private" && !value?.expired);
 }
 
 function toggleEditMode() {

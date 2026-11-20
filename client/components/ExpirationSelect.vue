@@ -11,7 +11,7 @@
         <option value="none">Never</option>
         <option value="hours">After hours</option>
         <option value="days">After days</option>
-        <option value="once">Single view</option>
+        <option v-if="allowSingleView" value="once">Single view</option>
       </select>
       <input
         v-if="mode === 'hours' || mode === 'days'"
@@ -29,8 +29,8 @@
     </div>
     <p class="text-xs text-theme-text-muted">
       {{ mode === "once"
-        ? "The first authorized opening consumes this note."
-        : "Timed expiration starts when the policy is saved. Edits do not reset it." }}
+        ? "The first public viewing consumes the shared link."
+        : "The sharing deadline starts when saved. Editing the note does not restart it." }}
     </p>
   </div>
 </template>
@@ -40,6 +40,7 @@ import { ref, useId, watch } from "vue";
 
 const props = defineProps({
   modelValue: { type: String, default: "none" },
+  allowSingleView: { type: Boolean, default: true },
 });
 const emit = defineEmits(["update:modelValue"]);
 const selectId = useId();

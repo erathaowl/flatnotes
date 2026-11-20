@@ -279,107 +279,104 @@ class PublicApiTests(unittest.TestCase):
             )
         self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 200)
 
-    def test_expiration_defaults_and_single_view_plain(self):
-        from flatnotes import main
-
-        with (
-            patch.object(main.global_config, "expiration_enabled", True),
-            patch.object(main.global_config, "expiration_default", "once"),
-        ):
-            created = self.client.post(
-                "/api/notes",
-                json={"title": "OneViewPlain", "content": "sensitive text"},
-                headers=self.headers,
-            )
-            self.assertEqual(created.status_code, 200, created.text)
-            listing = self.client.get("/api/expiring-notes", headers=self.headers).json()
-            self.assertTrue(any(item["id"] == "OneViewPlain" for item in listing))
-            results = self.client.get(
-                "/api/search", params={"term": "sensitive"}, headers=self.headers
-            ).json()
-            self.assertNotIn("OneViewPlain", [item["title"] for item in results])
-            first = self.client.get("/api/notes/OneViewPlain", headers=self.headers)
-            self.assertEqual(first.status_code, 200, first.text)
-            self.assertEqual(first.json()["content"], "sensitive text")
-            self.assertEqual(first.json()["expiration"]["mode"], "once")
-            self.assertIsNotNone(first.json()["viewToken"])
-            self.assertEqual(
-                self.client.get("/api/notes/OneViewPlain", headers=self.headers).status_code,
-                410,
-            )
-            self.assertEqual(
-                self.client.patch(
-                    "/api/notes/OneViewPlain",
-                    json={"newContent": "too late"},
-                    headers=self.headers,
-                ).status_code,
-                410,
-            )
+    def test_private_read_does_not_consume_public_single_view(self):
+        self.create_note("OneViewPlain", "sensitive text")
+        published = self.client.put(
+            "/api/notes/OneViewPlain/publication",
+            json={"expiration": "once", "slugMode": "random", "permission": "read"},
+            headers=self.headers,
+        )
+        self.assertEqual(published.status_code, 200, published.text)
+        slug = published.json()["slug"]
+        private = self.client.get("/api/notes/OneViewPlain", headers=self.headers)
+        self.assertEqual(private.status_code, 200)
+        self.assertEqual(private.json()["content"], "sensitive text")
+        search = self.client.get(
+            "/api/search", params={"term": "sensitive"}, headers=self.headers
+        ).json()
+        self.assertIn("OneViewPlain", [item["title"] for item in search])
+        first = self.client.get("/api/public/notes/" + slug)
+        self.assertEqual(first.status_code, 200, first.text)
+        self.assertTrue(first.json()["viewToken"])
+        self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 410)
+        self.assertEqual(
+            self.client.get("/api/notes/OneViewPlain", headers=self.headers).status_code,
+            200,
+        )
 
     def test_public_plain_single_view_and_attachment_guard(self):
-        from flatnotes import main
-
         self.create_note("PublicOnce", "public single view")
-        publication = self.publish("PublicOnce", "custom", "read", "public-once")
-        with patch.object(main.global_config, "expiration_enabled", True):
-            changed = self.client.put(
-                "/api/notes/PublicOnce/expiration",
-                json={"policy": "once"},
-                headers=self.headers,
-            )
-            self.assertEqual(changed.status_code, 200, changed.text)
-            slug = publication["slug"]
-            self.assertEqual(
-                self.client.get(
-                    "/api/public/notes/" + slug + "/attachments/file.png"
-                ).status_code, 410
-            )
-            once = self.client.get("/api/public/notes/" + slug)
-            self.assertEqual(once.status_code, 200, once.text)
-            self.assertTrue(once.json()["viewToken"])
-            self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 410)
+        publication = self.client.put(
+            "/api/notes/PublicOnce/publication",
+            json={
+                "slugMode": "custom", "permission": "read", "slug": "public-once",
+                "expiration": "once", "autoDeleteNote": False,
+            },
+            headers=self.headers,
+        )
+        self.assertEqual(publication.status_code, 200, publication.text)
+        slug = publication.json()["slug"]
+        self.assertEqual(
+            self.client.get(
+                "/api/public/notes/" + slug + "/attachments/file.png"
+            ).status_code, 410
+        )
+        first = self.client.get("/api/public/notes/" + slug)
+        self.assertEqual(first.status_code, 200)
+        self.assertTrue(first.json()["viewToken"])
+        self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 410)
+        self.assertEqual(self.client.get("/api/notes/PublicOnce", headers=self.headers).status_code, 200)
 
-    def test_encrypted_single_view_proof_and_no_password(self):
+    def test_encrypted_public_single_view_proof_without_private_consumption(self):
         from flatnotes import main
         import hashlib
 
         note_id = "3f2b" * 8
         proof = bytes.fromhex("42" * 32)
         verifier = hashlib.sha256(proof).hexdigest()
-        with (
-            patch.object(main.global_config, "encryption_enabled", True),
-            patch.object(main.global_config, "expiration_enabled", True),
-        ):
+        with patch.object(main.global_config, "encryption_enabled", True):
             created = self.client.put(
                 "/api/encrypted-notes/" + note_id,
                 content=b"opaque ciphertext bytes",
-                headers={
-                    **self.headers,
-                    "X-Revision": "*",
-                    "X-Expiration": "once",
-                    "X-View-Verifier": verifier,
-                },
+                headers={**self.headers, "X-Revision": "*"},
             )
             self.assertEqual(created.status_code, 200, created.text)
-            ciphertext = self.client.get(
+            published = self.client.put(
+                "/api/encrypted-notes/" + note_id + "/publication",
+                json={
+                    "slugMode": "random", "permission": "read",
+                    "expiration": "once", "viewVerifier": verifier,
+                },
+                headers=self.headers,
+            )
+            self.assertEqual(published.status_code, 200, published.text)
+            slug = published.json()["slug"]
+            private = self.client.get(
                 "/api/encrypted-notes/" + note_id, headers=self.headers
             )
-            self.assertEqual(ciphertext.headers["x-expiration-mode"], "once")
-            self.assertEqual(ciphertext.content, b"opaque ciphertext bytes")
+            self.assertEqual(private.status_code, 200)
+            self.assertNotIn("x-expiration-mode", private.headers)
+            public = self.client.get("/api/public/encrypted-notes/" + slug)
+            self.assertEqual(public.status_code, 200)
+            self.assertEqual(public.headers["x-expiration-mode"], "once")
             invalid = self.client.post(
-                "/api/encrypted-notes/" + note_id + "/view",
-                json={"proof": "00" * 32}, headers=self.headers
+                "/api/public/encrypted-notes/" + slug + "/view",
+                json={"proof": "00" * 32},
             )
             self.assertEqual(invalid.status_code, 403)
-            claimed = self.client.post(
-                "/api/encrypted-notes/" + note_id + "/view",
-                json={"proof": proof.hex()}, headers=self.headers
+            consumed = self.client.post(
+                "/api/public/encrypted-notes/" + slug + "/view",
+                json={"proof": proof.hex()},
             )
-            self.assertEqual(claimed.status_code, 200, claimed.text)
+            self.assertEqual(consumed.status_code, 200, consumed.text)
+            self.assertEqual(
+                self.client.get("/api/public/encrypted-notes/" + slug).status_code,
+                410,
+            )
             self.assertEqual(
                 self.client.get(
                     "/api/encrypted-notes/" + note_id, headers=self.headers
-                ).status_code, 410
+                ).status_code, 200,
             )
 
     def test_encrypted_listing_direct_url(self):
