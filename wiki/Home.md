@@ -6,7 +6,10 @@ a self-hosted Markdown note-taking application with optional
 browser-only encryption, selected-note publication, attachments,
 full-text search and custom branding.
 
-**Current release:** [v6.2.0](https://github.com/erathaowl/flatnotes/releases/tag/v6.2.0).
+**Current release:** [v6.3.0](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0).
+Release highlights: shared ordinary/encrypted editor controls, configurable
+note expiration, encrypted notes and pre-save Share/Expiration dialogs.
+See [Release notes](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0) for changes and upgrade guidance.
 [English README](https://github.com/erathaowl/flatnotes/blob/develop/README.md) ·
 [README italiano](https://github.com/erathaowl/flatnotes/blob/develop/readme-it.md) ·
 [GitHub Actions](https://github.com/erathaowl/flatnotes/actions)

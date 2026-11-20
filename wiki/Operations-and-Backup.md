@@ -2,14 +2,14 @@
 
 ## Deployment options
 
-flatnotes 6.2.0 ships with three deployment artifacts:
+flatnotes 6.3.0 ships with three deployment artifacts:
 
-- GHCR images `ghcr.io/erathaowl/flatnotes:v6.2.0` and `:latest`;
+- GHCR images `ghcr.io/erathaowl/flatnotes:v6.3.0` and `:latest`;
   `:develop` tracks the development branch.
 - An installable Python 3.13 wheel,
-  `flatnotes-6.2.0-py3-none-any.whl`, including the FastAPI
+  `flatnotes-6.3.0-py3-none-any.whl`, including the FastAPI
   backend, compiled Vue frontend and `flatnotes` CLI.
-- `flatnotes-6.2.0.tar.gz`, an application archive with Python
+- `flatnotes-6.3.0.tar.gz`, an application archive with Python
   backend sources and compiled frontend files.
 
 A production deployment needs a writable data directory, application
@@ -58,7 +58,7 @@ docker compose up -d flatnotes
 docker compose logs --tail=100 flatnotes
 ```
 
-Use a pinned tag `v6.2.0` for reproducible deployments. The
+Use a pinned tag `v6.3.0` for reproducible deployments. The
 `:develop` tag is for testing and changes with each successful
 development build.
 
@@ -84,7 +84,7 @@ restart the service:
 ```bash
 python3.13 -m venv .venv
 . .venv/bin/activate
-pip install --upgrade ./flatnotes-6.2.0-py3-none-any.whl
+pip install --upgrade ./flatnotes-6.3.0-py3-none-any.whl
 flatnotes --host 127.0.0.1 --port 8080
 ```
 
@@ -116,19 +116,27 @@ A copied encrypted file is useless if its password was lost.
 
 ## Migration to encryption
 
-The **Protect** action is available for an already saved ordinary
-note in *view mode*. It checks the source modification time,
-encrypts in the browser, creates a new `.md.enc` file, removes the
-active plaintext file, removes its existing publication and
-updates the search index. Conversion is not secure erasure: historic
-backups and storage blocks may still contain plaintext.
+**Protect** is available in the ordinary editor during both editing
+and viewing, even for a new unsaved note. A new draft is encrypted
+locally and written directly to a `.md.enc` file; no plaintext
+`.md` file is created on the server. A staged expiration policy
+is applied and any staged publication is attempted after saving.
+
+For an existing ordinary note, Protect can encrypt the current unsaved
+editor changes. The server verifies the original file's modification
+time, saves ciphertext, removes the existing plaintext file,
+revokes the old public link and updates the search index.
+An existing timed expiration is transferred without restarting its
+deadline. Conversion does not securely erase historical plaintext
+from browser drafts, backups or storage snapshots.
 
 Test on a disposable note before migrating confidential material.
 
 ## Expiration cleanup and recovery
 
-When `FLATNOTES_EXPIRATION_ENABLED=true`, each note can
-expire after hours, days or one authorized viewing.
+When `FLATNOTES_EXPIRATION_ENABLED=true`, notes can be configured
+to expire after hours, days or one authorized view. Previously
+configured rules remain enforced even if the switch is turned off.
 SQLite stores the rules in `note_expirations`, inside
 `.flatnotes-publications.db`. The `note_view_sessions`
 table retains short-lived attachment tokens for consumed

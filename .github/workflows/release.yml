@@ -66,6 +66,9 @@ jobs:
       - name: Test unified note editing
         run: node scripts/test-note-ui.mjs
 
+      - name: Validate documentation
+        run: node scripts/test-docs.mjs
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Check project version

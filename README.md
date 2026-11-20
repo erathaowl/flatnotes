@@ -16,7 +16,7 @@ A lightweight, self-hosted Markdown note-taking application with search, tags, c
 - Responsive Vue interface with Markdown and WYSIWYG editing, light/dark themes, and full-text search.
 - Tags, wiki-style links (`[[Note Title]]`), image attachments, and configurable quick-access notes.
 - Authentication modes: `none`, `read_only`, `password`, and `totp`.
-- **Per-note publication** with anonymous read-only access or optional anonymous editing. Each published note has a random, title-derived, or custom URL.
+- **Per-note publication** with anonymous read-only access or optional anonymous editing. Ordinary notes support random, title-derived, or custom URLs; protected notes support random or custom URLs to keep their titles encrypted.
 - Protected notes with Argon2id + AES-256-GCM, unlock in the browser, encrypted attachments and no decryption password sent to FastAPI.
 - Configurable password length and character categories for newly protected notes; permanent deletion by an authenticated user even if the note password is lost.
 - Per-feature environment flags to enable encryption and suspend sharing without erasing publication settings.
@@ -41,13 +41,13 @@ Release assets include a standalone Python wheel containing the FastAPI backend,
 the complete compiled Vue frontend, and the `flatnotes` command-line launcher.
 The target machine needs **Python 3.13**, but **does not need Node.js**.
 
-Download `flatnotes-6.2.0-py3-none-any.whl` from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.2.0), then run:
+Download `flatnotes-6.3.0-py3-none-any.whl` from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0), then run:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.2.0-py3-none-any.whl
+pip install flatnotes-6.3.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -80,7 +80,7 @@ Create a `compose.yaml` file:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.2.0
+    image: ghcr.io/erathaowl/flatnotes:v6.3.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -106,7 +106,7 @@ Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, usin
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.2.0` release. Use `:latest` for the latest published release or `:develop` only when testing the current development branch.
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.3.0` release. Use `:latest` for the latest published release or `:develop` only when testing the current development branch.
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
@@ -142,7 +142,7 @@ knowing its password, after confirmation. This requires regular account access.
 4. Open the note later at `/e/{id}` and enter the password in the unlock form.
 5. Use **Lock** when finished. **Share** creates an optional public ciphertext link at `/p/{slug}`.
 
-To encrypt a saved ordinary note, open it at `/n/{title}`, exit Edit mode and select **Protect**. Conversion replaces the active Markdown file and revokes any previous publication. Images and external attachments must be embedded or removed before conversion. A saved plaintext source may still remain in older backups or deleted disk blocks.
+To encrypt a note, choose **Protect** from the ordinary editor's toolbar. You can protect a **new unsaved note**, an already saved note, or the current **unsaved changes** while Edit is enabled. The browser encrypts the current title and Markdown without uploading a temporary plaintext copy. For an existing note, the conversion replaces the active `.md` file and revokes its former publication; for a new draft, only an encrypted `.md.enc` file is created. Remove or embed external attachment references before protecting a note. Existing plaintext sources may remain in backups or deleted disk blocks.
 
 The **Protected Notes** list shows only opaque IDs. Its red delete icon can permanently remove a note even when its protection password is forgotten, provided the user has application write permission. Password recovery, password rotation and automatic removal of protection are not implemented.
 
@@ -224,12 +224,22 @@ have the normal foreground text color when configured and a muted
 appearance when inactive. **Delete** is red. Both edit and view mode
 retain the available actions.
 
-On a **new note**, Share and Expiration open the same modal dialogs as
-for existing notes. The settings are staged locally and applied only
-after the first successful save. This avoids trying to configure an
-encrypted note that has not been created yet. New notes can be protected
-directly with **Protect** while editing: encryption happens in the
-browser without sending an intermediate plaintext draft to the server.
+On a **new note**, Share and Expiration use the same dialogs as saved notes.
+Use **Apply** in Share or **Save** in Expiration to stage settings locally.
+The first note **Save** writes the note and its expiration policy, then
+attempts to activate any selected public link. A publication failure
+leaves the saved note intact; reopen Share to retry. Before the first
+Save, no server-side publication or expiration update is attempted.
+
+For an **existing note**, saving a change in either dialog takes effect
+immediately. The white (dark theme) or primary-colored (light theme)
+icon **and label** mark a configured Share/Expiration action; inactive
+ones use muted text. A red **Delete** action and an **Edit** toggle
+appear in the unified toolbar. **Lock** is available on protected
+notes and asks before discarding unsaved edits.
+
+New ordinary notes can also be protected directly with **Protect** while
+editing, without sending an intermediate plaintext draft to the server.
 
 On an existing ordinary note, Protect can also use currently unsaved
 editor content, encrypting it directly during conversion. For protected

@@ -3,7 +3,7 @@
 flatnotes exposes OpenAPI documentation at `/docs` and the schema at
 `/openapi.json`. Prefixes follow `FLATNOTES_PATH_PREFIX` when configured.
 This page explains the note, publishing and encrypted-byte routes used by
-the 6.2.0 frontend. See the generated schema for exact response models.
+the 6.3.0 frontend. See the generated schema for exact response models.
 
 ## Authentication
 
@@ -71,7 +71,7 @@ old URL. Anonymous edits use a returned `revision` value and
 | GET | `/api/encrypted-notes/{id}` | Download raw encrypted envelope |
 | PUT | `/api/encrypted-notes/{id}` | Create or replace encrypted envelope |
 | DELETE | `/api/encrypted-notes/{id}` | Delete ciphertext and publication, no note password required |
-| POST | `/api/encrypted-notes/protect/{title}/{id}` | Convert a saved plain note to ciphertext |
+| POST | `/api/encrypted-notes/protect/{title}/{id}` | Convert an existing plain note to ciphertext, including unsaved editor changes |
 | GET | `/api/encrypted-notes/{id}/publication` | Read encrypted-note publication |
 | PUT | `/api/encrypted-notes/{id}/publication` | Create/update encrypted-note publication |
 | DELETE | `/api/encrypted-notes/{id}/publication` | Revoke encrypted-note publication |
@@ -85,10 +85,17 @@ The `id` is a 32-character lowercase hexadecimal identifier. The
 Use `X-Revision: *` when creating a new note; subsequent updates
 must provide the previously returned revision, or HTTP 409 is returned.
 
-The conversion endpoint also requires `X-Source-Modified`, matching
-the source ordinary note's last-modified value. If the source changed,
-HTTP 409 prevents replacing it. The server writes ciphertext and
-removes the original plaintext file and publication.
+The conversion endpoint requires `X-Source-Modified` matching
+the original `.md` file's last-modified timestamp. HTTP 409
+prevents replacing a newer source. The browser can encrypt current
+unsaved editor changes directly; the server writes ciphertext and
+removes the old plaintext file and publication.
+
+**Protect for a new unsaved ordinary note** uses
+`PUT /api/encrypted-notes/{id}` and `X-Revision: *`,
+because the source `.md` file does not exist. The first
+server-side copy is ciphertext; the UI can then publish it
+using `PUT /api/encrypted-notes/{id}/publication` if requested.
 
 ## Public encrypted-note API
 
@@ -103,6 +110,17 @@ No endpoint requests or accepts the note's encryption password.
 
 Encrypted publications support **random** and **custom** slugs only.
 The `title` slug mode is rejected to avoid disclosing the title.
+
+## Client-side settings on unsaved notes
+
+The Share and Expiration dialogs can be used before a new note
+has been saved. These changes remain in client-side state
+until the first **Save** of the note, when creation applies
+the selected expiration and attempts the publication afterward.
+If creating the public link fails, the note remains saved.
+
+For existing notes, saving the modals calls the corresponding
+API immediately. The backend has no separate draft-storage API.
 
 ## Expiration API
 
@@ -127,8 +145,9 @@ The claim endpoint accepts `{"proof":"<64-hex>"}` after local
 decryption, with no password or plaintext in its payload.
 
 The first ordinary one-view content request also returns
-`viewToken`, permitting published attachments to load
-briefly using `?view_token=...`. HTTP 410 indicates that
+`viewToken`; allowlisted published attachments can load for up
+to 180 seconds using `?view_token=...`. The token cannot
+grant a second note-content read. HTTP 410 indicates that
 a note expired or its single view was consumed.
 
 Full behavior: [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).

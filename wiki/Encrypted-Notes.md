@@ -25,12 +25,17 @@ Enter and confirm the protection password, then provide a title and
 content in the editor. The file is created only when the first
 **Save** succeeds. The filename uses a random 128-bit ID.
 
-**Protect an ordinary note:** save the existing `.md` note, open
-`/n/{title}`, exit Edit mode, and select **Protect**. The browser
-encrypts title and content. Before conversion, remove or embed
-external plaintext attachments. The server checks that the source
-has not changed, writes ciphertext, removes the active plaintext file,
-revokes its old publication and removes it from the search index.
+**Protect an ordinary note:** choose **Protect** from an ordinary
+note's toolbar, in Edit or view mode. This includes new unsaved notes
+and previously saved notes with current unsaved changes. The browser
+encrypts the title and the *current editor content* directly, with
+no intermediate plaintext save. For a new draft, this creates a new
+encrypted file without ever creating a plaintext note on the server.
+For an existing note, the server checks the original file's
+modification time, writes ciphertext, removes the original `.md`
+file, revokes its old publication and updates the search index.
+Before conversion, remove or embed external plaintext attachments.
+Any old backups or snapshots may still contain plaintext.
 
 **Unlock:** navigate to `/e/{id}`, enter the protection password
 in the browser prompt and choose **Unlock**. The browser downloads
@@ -77,9 +82,11 @@ toolbar as the ordinary editor. Both **Share** and **Expiration**
 are usable before the note exists on the server.
 
 Before the first save, their modal dialogs store the chosen
-settings only in the browser. Saving the encrypted note first
-creates the ciphertext file and expiration rule, and then
-applies any pending publication. This prevents configuring
+settings only in the browser. Saving the encrypted note first creates the ciphertext file and
+expiration rule, and then attempts to apply any pending publication.
+The **Share** dialog uses Apply to stage the choice; Expiration uses
+Save to stage the policy. Neither contacts the note API before the
+first note Save. This prevents configuring
 expiration against a nonexistent note. A failed publication
 does not discard a note already encrypted and saved.
 
@@ -228,7 +235,7 @@ localStorage or sessionStorage.
 
 - **Password recovery:** not available. Deleting a note without its
   password is possible, but decrypting it is not.
-- **Change password:** not implemented in 6.2.0.
+- **Change password:** not implemented in 6.3.0.
 - **Remove protection:** not implemented; exporting unlocked Markdown
   produces a local plaintext copy instead.
 - **Password policy:** affects newly created protection passwords,

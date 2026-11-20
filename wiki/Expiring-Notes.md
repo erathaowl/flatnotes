@@ -1,6 +1,6 @@
 # Expiring Notes
 
-flatnotes 6.2.0 supports optional note-level expiration for both ordinary
+flatnotes 6.3.0 supports optional note-level expiration for both ordinary
 Markdown and password-protected notes. The expiration rule belongs to the
 note itself, not just its public link. When it expires, private and public
 access are both revoked and the active note file is removed by cleanup.
@@ -54,10 +54,13 @@ and a muted appearance for `none`.
 - **After N days:** the note expires after N periods of 24 hours.
 - **Single view:** only one successful content opening is allowed.
 
-New ordinary notes show the **Expiration** selector in their edit
-form; new protected notes show it alongside their password form.
-The default comes from the environment. Existing notes can use
-the **Expiration** toolbar action while the feature is enabled.
+New ordinary and protected notes both show an **Expiration** toolbar
+button. The modal opens after selecting the button, including
+before the first save; there is no inline selector in either editor.
+The initial choice comes from the environment default. **Save**
+inside the modal stages the policy on a new note; the note's own
+**Save** persists it. For existing notes, the modal Save updates
+the stored policy immediately while the feature is enabled.
 
 Timing starts when a new note is first saved, or when the owner
 saves a changed expiration policy. Normal content edits do not

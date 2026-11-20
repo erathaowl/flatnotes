@@ -4,16 +4,23 @@ The [erathaowl/flatnotes](https://github.com/erathaowl/flatnotes) fork supports 
 
 ## Publish a note
 
-1. Open an existing note in the authenticated interface.
+1. Open an ordinary note, or unlock an encrypted note. The Share dialog
+   is also available before a new note has been saved.
 2. Click **Share**.
-3. Choose **Public: read-only** (default public mode) or **Public: anyone with the link can edit**.
+3. Choose **Public: read-only** or **Public: anyone with the link can edit**.
 4. Choose a public URL suffix:
    - **Random** (recommended): 32 hexadecimal characters generated cryptographically.
-   - **Use note title**: lowercase URL slug derived from the note title.
+   - **Use note title**: lowercase URL slug derived from the title of
+     an ordinary note only; encrypted notes never disclose their title
+     through public slug generation.
    - **Custom**: your own URL suffix, with letters, digits, and hyphens.
-5. Click **Save**. The application saves the setting and closes the dialog.
+5. On an existing note, click **Save** to apply the setting. For an
+   unsaved new note, click **Apply** to stage the setting locally;
+   the public link is created only after the note's first **Save**.
 
-Reopen Share to copy the active URL, change permissions, or unpublish. A note has one active public link at a time. All slugs are unique and case-insensitive.
+Reopen Share to copy the active URL, change permissions, or unpublish.
+If the note saves but creating the public link fails, the note remains
+saved; reopen Share to retry. A note has one active public link at a time. All slugs are unique and case-insensitive.
 
 Example: `https://notes.example.com/p/my-shared-note`.
 
@@ -27,7 +34,9 @@ editable link permits ciphertext updates after unlock.
 
 For protected notes only **Random** and **Custom** slugs are
 available. The **Use note title** option is hidden because the
-title is encrypted and must not be disclosed to the server.
+title is encrypted. When protecting a new ordinary draft whose
+staged share choice used a title-based slug, the application
+switches that choice to a random slug instead.
 Encrypted attachments remain inside the encrypted note envelope.
 
 Both ordinary and encrypted publications are controlled by

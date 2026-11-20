@@ -1,7 +1,7 @@
 # Security Model and Cryptography
 
 This document describes the implemented security boundary for protected
-notes in flatnotes 6.2.0. It is a technical design reference, not a formal
+notes in flatnotes 6.3.0. It is a technical design reference, not a formal
 third-party security audit.
 
 ## Trust boundary
@@ -99,6 +99,12 @@ exports while the note is unlocked.
 There is no password recovery, user-based key escrow or implemented
 password-change operation.
 
+Protecting a new unsaved ordinary draft encrypts its current editor
+content without creating a plaintext note on the server. Protecting
+an existing note removes its active plaintext file, but historical
+backups, browser drafts and deleted storage blocks may retain
+plaintext. This conversion does not guarantee secure erasure.
+
 ## Public sharing of encrypted notes
 
 A private encrypted note uses `/e/{id}` and regular flatnotes
@@ -137,6 +143,9 @@ See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes)
 
 - Normal `.md` notes and their published versions are plaintext on the
   server. Do not confuse normal account authentication with encryption.
+- Share and Expiration settings chosen on an unsaved note are held
+  locally until the first save. Neither setting requires sending a
+  note's encryption password to the server.
 - Converting a previously plaintext note removes its current file and
   publication record. Deleted blocks, backups, browser drafts, logs and
   filesystem snapshots may retain historic plaintext. Secure erasure is

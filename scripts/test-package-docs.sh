@@ -24,4 +24,11 @@ for file in \
   fi
 done
 
-echo "Application archive includes English, Italian and wiki documentation."
+for source in wiki/*.md; do
+  if ! grep -Fxq "flatnotes/$source" <<< "$archive_contents"; then
+    echo "Missing release wiki page: $source" >&2
+    exit 1
+  fi
+done
+
+echo "Application archive includes both READMEs and every wiki Markdown page."

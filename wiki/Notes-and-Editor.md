@@ -34,11 +34,12 @@ and applied when the note is first saved. A new encrypted note
 does not exist on the server before the first save, so expiration
 configuration never contacts an unavailable note endpoint.
 
-The ordinary editor also exposes **Protect** while editing. It can
-encrypt unsaved Markdown directly in the browser without first
-uploading those edits in plaintext. The protected editor exposes
-**Lock**, including a confirmation if the current edit has not
-been saved.
+The ordinary editor exposes **Protect** even for a new or unsaved
+draft: it encrypts the current editor content locally without
+uploading it in plaintext. The protected editor exposes **Lock**,
+including a confirmation when editing changes would be discarded.
+After a successful Save, both editor types return to view mode.
+Share and Expiration are modal controls in both states.
 
 See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes)
 and [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
@@ -50,14 +51,22 @@ and [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-No
 2. Save the note. It is stored as a `.md` file in `FLATNOTES_PATH`.
 3. Open it later from search, recent notes or a direct `/n/{title}` link.
 4. Use **Edit** to change the title or body. Save or leave edit mode.
-5. Use **Share** to publish selectively, **Protect** to encrypt a saved
-   ordinary note, or **Delete** to remove it.
+5. Use **Share** to publish selectively, **Protect** to encrypt the
+   current note, or **Delete** to remove it.
 
-The **Protect** action appears on a saved ordinary note in view mode
-when `FLATNOTES_ENCRYPTION_ENABLED=true`. An unsaved draft must be handled
-before protection. Protection is a conversion, not a server-side file
-permission: the browser encrypts the title and body before sending
-ciphertext to the server. See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes).
+**Protect** is available in both viewing and editing modes when
+`FLATNOTES_ENCRYPTION_ENABLED=true` and writing is allowed. It also
+works for an unsaved new note: the browser encrypts the current title
+and Markdown, and the first server-side copy is ciphertext. On an
+existing note with unsaved edits, protection encrypts those edits
+directly and replaces the original plaintext file only after a
+successful encryption and conflict check. Any previous publication
+of that original note is revoked.
+
+References to external images and plaintext attachment paths must
+be removed or embedded before protection. Protect is conversion to
+a separate encrypted note, rather than an access-control flag on a
+plaintext note. See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes).
 
 Draft recovery exists for the ordinary editor. These local browser drafts
 are not an encrypted-note backup. Protected-note editing intentionally does
@@ -95,10 +104,11 @@ contradict the ciphertext-only requirement.
 
 ## Expiration controls
 
-When `FLATNOTES_EXPIRATION_ENABLED=true`, new ordinary notes
-and new encrypted notes offer an **Expiration** selector. On
-existing unlocked notes, the **Expiration** toolbar action
-opens the setting dialog. Available choices are never,
+When `FLATNOTES_EXPIRATION_ENABLED=true`, new ordinary and encrypted
+notes show an **Expiration** button in their toolbar. This opens the
+same modal as for existing notes; no inline selector appears.
+The draft policy is applied when the note is first saved.
+For saved notes, the modal updates the server immediately. Available choices are never,
 a positive number of hours, a positive number of days or
 single view.
 

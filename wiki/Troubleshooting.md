@@ -1,18 +1,18 @@
 # Troubleshooting
 
-Use this checklist for flatnotes 6.2.0. Avoid sharing passwords,
+Use this checklist for flatnotes 6.3.0. Avoid sharing passwords,
 authenticated tokens, or decrypted note contents when reporting bugs.
 
 ## Refreshing `/encrypted` shows JSON 404
 
 The application uses Vue history-mode routes and needs FastAPI (or
 your reverse proxy) to serve the frontend shell for direct navigation.
-The backend in 6.2.0 registers `/encrypted` as a page URL.
+The backend in 6.3.0 registers `/encrypted` as a page URL.
 
 If you still receive `{"detail":"Not Found"}`, verify that your
 container really runs the updated image and that the reverse proxy
 is forwarding the route to flatnotes, rather than to another app.
-`:develop` and `:v6.2.0` are separate image tags.
+`:develop` and `:v6.3.0` are separate image tags.
 
 ## Encryption does not work from a phone
 
@@ -54,17 +54,28 @@ protection password through its save API.
 
 ## Cannot protect an ordinary note
 
-- Save it first, leave Edit mode, and select **Protect**.
+- Select **Protect** from the ordinary editor. It works with a new draft and with an existing note, including unsaved edits. A new draft is encrypted without first saving a plaintext `.md` file on the server.
 - Ensure the feature flag allows encryption and the account can edit.
 - Remove or embed plaintext external attachments; conversion blocks
   the recognized external attachment patterns.
 - The protection password must satisfy the browser's configured
   length and character-category requirements.
-- If the original note changed during conversion, the API responds
-  with HTTP 409 to prevent deleting a newer revision.
+- For an existing note, HTTP 409 indicates the underlying Markdown file changed after it was opened. Reload before converting. For an unsaved draft, confirm that the title is present and the current editor content is available.
 
 Old plaintext data may remain in backups or snapshots even after a
 successful conversion.
+
+## New note: Share or Expiration settings appear unchanged
+
+For a new ordinary or encrypted note, both buttons open a modal.
+**Apply** in Share and **Save** in Expiration stage changes locally.
+The note must then be saved with its own **Save** button.
+A new encrypted note does not exist on the server before that save,
+so the expiration modal makes no API request until then.
+
+If saving the note succeeds but creating the public link fails,
+the note remains stored. Open Share and retry. The active-state
+button reflects whether the publication succeeded.
 
 ## Public sharing stopped working
 

@@ -21,18 +21,21 @@ These private navigation shortcuts do not operate on public note pages or the lo
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+Enter` / `Cmd+Enter` | Save |
-| `Esc` | Exit edit mode (prompt if changes are unsaved) |
+| `Esc` | Exit ordinary-note edit mode (prompt if changes are unsaved) |
 | `Ctrl+B` / `Cmd+B` | Bold |
 | `Ctrl+I` / `Cmd+I` | Italic |
 | `Ctrl+S` | Strikethrough (editor behavior) |
 
 On an anonymously editable shared note, use `Ctrl+Enter` / `Cmd+Enter` to save content changes. The public editor cannot rename, delete, or publish notes.
 
-The protected-note editor uses separate **Lock**, **Save**,
-**Cancel** and **Attach file** controls. On mobile, the title occupies
-a full row above the toolbar. The protection password is entered
-only in the unlock form; the account's keyboard shortcuts do not
-override it.
+Both editors use an **Edit** toggle, with Share and Expiration
+available through modals before the first save. On protected
+notes, **Ctrl+Enter** or **Cmd+Enter** saves current edits.
+Use the Edit toggle or **Cancel** to leave encrypted-note editing;
+the ordinary-note Escape shortcut does not automatically apply.
+**Lock** closes the crypto worker, prompting when edits would be
+discarded. **Attach file** is shown while editing an encrypted
+note. The title occupies its own row on mobile.
 
 See [Notes and Editor](https://github.com/erathaowl/flatnotes/wiki/Notes-and-Editor)
 and [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes).

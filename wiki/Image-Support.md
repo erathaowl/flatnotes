@@ -41,9 +41,9 @@ backend. There is no separate unencrypted attachment API for
 protected-note files. Inline pasted images can be embedded as
 data URLs in Markdown and encrypted with it.
 
-Before converting an existing ordinary note to encryption, remove
-or embed its references to plaintext files or externally hosted
-images. The Protect dialog blocks recognized external attachment
+Before protecting an ordinary note, including a new unsaved draft,
+remove or embed plaintext attachment references or externally
+hosted images. The Protect dialog blocks recognized external attachment
 references. A plain attachment file left on disk is not
 automatically encrypted by converting the note itself.
 

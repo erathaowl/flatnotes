@@ -1,8 +1,8 @@
 {
   "name": "flatnotes",
-  "version": "6.2.0",
+  "version": "6.3.0",
   "type": "module",
-  "description": "Self-hosted Markdown notes with optional browser-only encryption and public sharing.",
+  "description": "Self-hosted Markdown notes with browser encryption, expiration and sharing.",
   "main": "client/index.html",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

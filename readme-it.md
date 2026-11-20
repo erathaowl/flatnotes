@@ -34,17 +34,17 @@ Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, per
 
 ## Installazione tramite wheel Python
 
-Le release includono anche il file `flatnotes-6.2.0-py3-none-any.whl`,
+Le release includono anche il file `flatnotes-6.3.0-py3-none-any.whl`,
 contenente **backend FastAPI, frontend Vue già compilato e comando `flatnotes`**.
 Sul server è sufficiente **Python 3.13**, senza bisogno di Node.js o Docker.
 
-Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.2.0),
+Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.3.0),
 poi esegui:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.2.0-py3-none-any.whl
+pip install flatnotes-6.3.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -72,7 +72,7 @@ Crea un file `compose.yaml`:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.2.0
+    image: ghcr.io/erathaowl/flatnotes:v6.3.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -98,7 +98,7 @@ Prepara un file `.env` contenente `FLATNOTES_PASSWORD` e `FLATNOTES_SECRET_KEY`,
 docker compose up -d
 ```
 
-Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.2.0`; `:latest` indica l'ultima release pubblicata, mentre `:develop` è destinato ai test delle build di sviluppo.
+Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.3.0`; `:latest` indica l'ultima release pubblicata, mentre `:develop` è destinato ai test delle build di sviluppo.
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
@@ -133,7 +133,7 @@ confermando la cancellazione e usando il normale accesso all'applicazione.
 4. Per riaprire la nota usa `/e/{id}` e inserisci la password nel browser.
 5. Usa **Lock** al termine. Con **Share** puoi pubblicare un collegamento cifrato `/p/{slug}`.
 
-Per proteggere una nota normale già salvata, aprila in visualizzazione e scegli **Protect**. La conversione sostituisce il file Markdown attivo e revoca eventuali condivisioni precedenti. Gli allegati esterni devono prima essere rimossi o incorporati.
+Puoi premere **Protect** direttamente durante la modifica di una nota normale, anche quando è una nuova bozza ancora da salvare. Il browser cifra il titolo e il contenuto presenti nell'editor senza inviare prima una copia in chiaro al server. Per le note già esistenti, la conversione sostituisce il file Markdown attivo e revoca le condivisioni precedenti. Per le nuove bozze viene creato direttamente il file cifrato. Gli allegati esterni devono prima essere rimossi o incorporati.
 
 La lista **Protected Notes** mostra identificativi casuali. Il pulsante rosso Delete consente di eliminare una nota anche senza conoscerne la password, purché l'utente possa modificare i dati dell'applicazione. Il recupero della password, il suo cambio e la conversione automatica della nota cifrata in Markdown non sono attualmente previsti.
 
@@ -207,15 +207,19 @@ Guida: [Expiring Notes](wiki/Expiring-Notes.md).
 ### Interfaccia di modifica unificata
 
 Le note ordinarie e cifrate condividono il campo titolo e la barra dei
-comandi, con **Edit** a interruttore. I pulsanti **Share** e
-**Expiration** mostrano il colore principale quando sono attivi e
-rimangono attenuati quando sono disattivati. **Delete** è rosso.
+comandi, con **Edit** a interruttore. I pulsanti **Share** ed **Expiration** mostrano icona e testo bianchi
+nel tema scuro quando sono configurati, con il colore principale nel
+tema chiaro; rimangono attenuati quando sono disattivati.
+**Delete** è rosso. Il pulsante **Lock** è presente per le note cifrate.
 
-Per una nota ancora da salvare, Share ed Expiration aprono gli stessi
-modali previsti per le note esistenti. Le impostazioni vengono
-preparate nel browser e applicate solo al primo salvataggio riuscito.
-Si evita così l'errore provocato dal tentativo di impostare la scadenza
-su una nota cifrata ancora inesistente.
+Per una nota ancora da salvare, **Share** ed **Expiration** aprono gli
+stessi modali previsti per le note esistenti. **Apply** nella finestra
+Share e **Save** nella finestra Expiration preparano le scelte nel browser.
+Solo il primo **Save** della nota salva il contenuto e la scadenza
+e successivamente prova ad attivare l'eventuale condivisione.
+Se la pubblicazione fallisce, la nota rimane salvata; puoi riprovare
+aprendo Share. Per le note già esistenti, invece, le modifiche nei
+due modali hanno effetto immediato.
 
 **Protect** permette anche di cifrare direttamente una nota normale
 nuova o con modifiche non salvate, senza un salvataggio intermedio
