@@ -1,2 +1,2 @@
-v6.2.0
-# Publish note expiration with single-view support, documented and tested.
+v6.3.0
+# Release documentation audit and unified note editing refinements.
