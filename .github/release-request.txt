@@ -1,3 +1,2 @@
-v6.0.0
-# Rebuild published v6.0.0 release with a standalone Python wheel.
-# Retry after packaging import fixes.
+v6.1.0
+# Publish the documented 6.1.0 release with Docker image, wheel, and source archive.
