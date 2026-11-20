@@ -1,2 +1,2 @@
-v6.1.0
-# Publish the documented 6.1.0 release with Docker image, wheel, and source archive.
+v6.2.0
+# Publish note expiration with single-view support, documented and tested.
