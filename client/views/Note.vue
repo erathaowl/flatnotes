@@ -43,6 +43,13 @@
     v-model="isShareModalVisible"
     :title="note.title"
   />
+  <ExpirationModal
+    v-if="globalStore.config.expirationEnabled && !isNewNote && note.title"
+    v-model="isExpirationModalVisible"
+    kind="plain"
+    :noteId="note.title"
+    @updated="onExpirationUpdated"
+  />
   <ProtectModal
     v-if="globalStore.config.encryptionEnabled"
     v-model="isProtectModalVisible"
@@ -78,6 +85,11 @@
           label="Protect"
           @click="isProtectModalVisible = true"
         />
+        <CustomButton
+          v-if="canModify && !isNewNote && globalStore.config.expirationEnabled"
+          label="Expiration"
+          @click="isExpirationModalVisible = true"
+        />
         <!-- Delete Button -->
         <CustomButton
           v-show="canModify && !isNewNote"
@@ -110,6 +122,13 @@
       </div>
     </div>
 
+    <div v-if="isNewNote && editMode && globalStore.config.expirationEnabled" class="mt-3">
+      <ExpirationSelect v-model="expirationPolicy" />
+    </div>
+    <p v-else-if="note.expiration?.mode && note.expiration.mode !== 'none'"
+      class="mt-2 text-xs text-theme-text-muted">
+      {{ expirationLabel(note.expiration) }}
+    </p>
     <hr v-if="!editMode" class="my-4 border-theme-border" />
 
     <!-- Content -->
@@ -164,6 +183,8 @@ import CustomButton from "../components/CustomButton.vue";
 import LoadingIndicator from "../components/LoadingIndicator.vue";
 import ShareModal from "../components/ShareModal.vue";
 import ProtectModal from "../components/ProtectModal.vue";
+import ExpirationModal from "../components/ExpirationModal.vue";
+import ExpirationSelect from "../components/ExpirationSelect.vue";
 import Toggle from "../components/Toggle.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
@@ -177,7 +198,7 @@ const props = defineProps({
 });
 
 const canModify = computed(
-  () => globalStore.config.authType != authTypes.readOnly,
+  () => globalStore.config.authType != authTypes.readOnly && !note.value.viewToken,
 );
 let contentChangedTimeout = null;
 const editMode = ref(false);
@@ -186,6 +207,8 @@ const isSaveChangesModalVisible = ref(false);
 const isDeleteModalVisible = ref(false);
 const isShareModalVisible = ref(false);
 const isProtectModalVisible = ref(false);
+const isExpirationModalVisible = ref(false);
+const expirationPolicy = ref("none");
 const isDraftModalVisible = ref(false);
 const isNewNote = computed(() => !props.title);
 const loadingIndicator = ref();
@@ -211,7 +234,9 @@ function init() {
         loadingIndicator.value.setLoaded();
       })
       .catch((error) => {
-        if (error.response?.status === 404) {
+        if (error.response?.status === 410) {
+          loadingIndicator.value.setFailed("Note expired or already viewed", mdiNoteOffOutline);
+        } else if (error.response?.status === 404) {
           loadingIndicator.value.setFailed("Note not found", mdiNoteOffOutline);
         } else {
           loadingIndicator.value.setFailed();
@@ -220,6 +245,7 @@ function init() {
       });
   } else {
     newTitle.value = "";
+    expirationPolicy.value = globalStore.config.expirationDefault || "none";
     note.value = new Note();
     // Set the editMode to false to close any existing editors.
     // This ensures the editor is cleanly reinitialised in an empty state.
@@ -230,6 +256,19 @@ function init() {
       loadingIndicator.value.setLoaded();
     });
   }
+}
+
+function onExpirationUpdated(value) {
+  note.value.expiration = value;
+}
+
+function expirationLabel(value) {
+  if (value.mode === "once") {
+    return note.value.viewToken ? "Single view consumed" : "Single view on next opening";
+  }
+  return value.expiresAt
+    ? "Expires " + new Date(value.expiresAt * 1000).toLocaleString()
+    : "";
 }
 
 // Note Editing
@@ -306,7 +345,7 @@ function saveHandler(close = false) {
 }
 
 function saveNew(newTitle, newContent, close = false) {
-  createNote(newTitle, newContent)
+  createNote(newTitle, newContent, expirationPolicy.value)
     .then((data) => {
       clearDraft();
       note.value = data;

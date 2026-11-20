@@ -8,12 +8,18 @@
     <template v-else-if="note">
       <header class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h1 class="break-words text-3xl">{{ note.title }}</h1>
-        <div v-if="note.permission === 'edit'" class="flex gap-2 print:hidden">
+        <div v-if="note.permission === 'edit' && !note.viewToken" class="flex gap-2 print:hidden">
           <CustomButton v-if="editing" label="Cancel" @click="editing = false" />
           <CustomButton v-if="editing" label="Save" style="cta" @click="save" />
           <CustomButton v-else label="Edit" @click="editing = true" />
         </div>
       </header>
+      <p v-if="note.viewToken" class="mb-3 text-xs text-theme-text-muted">
+        Single view consumed. Reloading or following the link again will not work.
+      </p>
+      <p v-if="note.expiration?.expiresAt" class="mb-3 text-xs text-theme-text-muted">
+        Expires {{ new Date(note.expiration.expiresAt * 1000).toLocaleString() }}
+      </p>
       <p v-if="saveError" role="alert" class="mb-3 text-theme-danger">{{ saveError }}</p>
       <hr class="mb-4 border-theme-border" />
       <ToastViewer
@@ -59,7 +65,8 @@ const viewerContent = computed(() => {
     /(^|[\s("'=])\/?attachments\/([^\s\)"'<>\]?#]+)/g,
     (_, prefix, filename) =>
       prefix + "api/public/notes/" + encodeURIComponent(props.slug) +
-      "/attachments/" + filename,
+      "/attachments/" + filename +
+      (note.value?.viewToken ? "?view_token=" + encodeURIComponent(note.value.viewToken) : ""),
   );
 });
 
@@ -74,6 +81,8 @@ async function load() {
     note.value = null;
     if (error.response?.status === 404) {
       encryptedSlug.value = props.slug;
+    } else if (error.response?.status === 410) {
+      errorMessage.value = "This note has expired or its single view has been used.";
     } else {
       errorMessage.value = "Failed to load the shared note.";
     }

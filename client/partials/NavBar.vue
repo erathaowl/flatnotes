@@ -66,6 +66,11 @@ const menuItems = [
     command: () => router.push({ name: "encryptedNotes" }),
   },
   {
+    label: "Expiring Notes",
+    icon: mdilNoteMultiple,
+    command: () => router.push({ name: "expiringNotes" }),
+  },
+  {
     label: "All Notes",
     icon: mdilNoteMultiple,
     command: () =>

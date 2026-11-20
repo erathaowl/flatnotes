@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { Worker } from "node:worker_threads";
 import { copyAttachments } from "../client/cryptoSession.js";
 
@@ -33,6 +34,10 @@ const content = "Private markdown with a secret value.";
 const password = "long-test-password-not-shared";
 const author = session();
 const ciphertext = await author.call("create", { noteId: id, password, title, content });
+const proof = await author.call("viewProof", {});
+const verifier = await author.call("viewVerifier", {});
+assert.equal(createHash("sha256").update(Buffer.from(proof, "hex")).digest("hex"), verifier);
+assert.equal(proof.length, 64);
 assert.equal(JSON.parse(ciphertext).version, 1);
 assert.ok(!ciphertext.includes(title));
 assert.ok(!ciphertext.includes(content));
@@ -47,6 +52,8 @@ await visitor.close();
 
 const reader = session();
 const decrypted = await reader.call("unlock", { noteId: id, password, ciphertext });
+assert.equal(await reader.call("viewProof", {}), proof);
+assert.equal(await reader.call("viewVerifier", {}), verifier);
 assert.deepEqual(decrypted, { title, content, attachments: [] });
 
 const attached = [{ id: "ab12", name: "report.pdf", dataUrl: "data:application/pdf;base64,SGVsbG8=" }];

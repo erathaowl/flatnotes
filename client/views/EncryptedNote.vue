@@ -1,5 +1,13 @@
 <template>
   <div class="mx-auto w-full max-w-4xl flex-1">
+    <ExpirationModal
+      v-if="!publicSlug && unlocked && globalStore.config.expirationEnabled"
+      v-model="showExpiration"
+      kind="encrypted"
+      :noteId="activeId"
+      :getVerifier="getViewVerifier"
+      @updated="onExpirationUpdated"
+    />
     <ShareModal
       v-if="!publicSlug && unlocked && globalStore.config.sharingEnabled"
       v-model="showSharing"
@@ -39,6 +47,11 @@
             class="mb-3 w-full rounded border border-theme-border bg-theme-background px-3 py-2"
           />
         </template>
+        <ExpirationSelect
+          v-if="isNew && globalStore.config.expirationEnabled"
+          v-model="expirationPolicy"
+          class="mb-4"
+        />
         <p v-if="isNew" class="mb-3 text-xs text-theme-text-muted">
           {{ passwordPolicyDescription(globalStore.config) }}
         </p>
@@ -72,6 +85,12 @@
             @click="showSharing = true"
           />
           <CustomButton
+            v-if="!publicSlug && globalStore.config.expirationEnabled && !consumedView"
+            :iconPath="mdilClock"
+            label="Expiration"
+            @click="showExpiration = true"
+          />
+          <CustomButton
             v-if="!publicSlug"
             :iconPath="mdilDownload"
             label="Export Markdown"
@@ -91,6 +110,11 @@
           <CustomButton v-if="canEdit && !editing" label="Edit" @click="editing = true" />
         </div>
       </header>
+      <p v-if="expiration.mode !== 'none'" class="text-xs text-theme-text-muted">
+        {{ expiration.mode === "once"
+          ? (consumedView ? "Single view consumed" : "Single view on next opening")
+          : "Expires " + new Date(expiration.expiresAt * 1000).toLocaleString() }}
+      </p>
       <hr class="mb-4 border-theme-border" />
       <p v-if="message" role="alert" class="mb-3 text-theme-danger">{{ message }}</p>
       <div v-if="attachments.length" class="mb-4 rounded border border-theme-border p-3">
@@ -128,18 +152,21 @@
 import SvgIcon from "@jamescoyle/vue-icon";
 import {
   mdilCancel, mdilContentSave, mdilDelete, mdilDownload,
-  mdilLink, mdilLock, mdilPaperclip,
+  mdilClock, mdilLink, mdilLock, mdilPaperclip,
 } from "@mdi/light-js";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import {
+  consumeEncryptedView,
   deleteEncryptedNote,
   fetchEncryptedNote,
   saveEncryptedNote,
 } from "../api.js";
 import CustomButton from "../components/CustomButton.vue";
 import ShareModal from "../components/ShareModal.vue";
+import ExpirationModal from "../components/ExpirationModal.vue";
+import ExpirationSelect from "../components/ExpirationSelect.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
 import { EncryptedSession, copyAttachments, newEncryptedId } from "../cryptoSession.js";
@@ -162,6 +189,10 @@ const loading = ref(true);
 const busy = ref(false);
 const editing = ref(false);
 const showSharing = ref(false);
+const showExpiration = ref(false);
+const expiration = ref({ mode: "none", policy: "none", expiresAt: null });
+const expirationPolicy = ref("none");
+const consumedView = ref(false);
 const message = ref("");
 const loadError = ref("");
 const editor = ref(null);
@@ -176,7 +207,8 @@ const isNew = computed(() => props.id === "new" && !props.publicSlug);
 const canEdit = computed(() =>
   (!props.publicSlug || permission.value === "edit") &&
   globalStore.config.authType !== "read_only" &&
-  globalStore.config.encryptionEnabled,
+  globalStore.config.encryptionEnabled &&
+  !consumedView.value,
 );
 
 async function load() {
@@ -187,6 +219,7 @@ async function load() {
   lock();
   loading.value = true;
   loadError.value = "";
+  expirationPolicy.value = globalStore.config.expirationDefault || "none";
   if (isNew.value) {
     if (!globalStore.config.encryptionEnabled) {
       loadError.value = "Creating protected notes is disabled by the administrator.";
@@ -200,6 +233,7 @@ async function load() {
     activeId.value = result.noteId;
     revision.value = result.revision;
     permission.value = result.permission;
+    expiration.value = result.expiration;
   } catch (error) {
     loadError.value = error.response?.status === 404
       ? "This encrypted note is not available."
@@ -216,16 +250,25 @@ async function unlock() {
   cryptoSession = new EncryptedSession();
   try {
     const note = await cryptoSession.unlock(activeId.value, password.value, ciphertext.value);
+    if (expiration.value.mode === "once") {
+      const proof = await cryptoSession.viewProof();
+      await consumeEncryptedView(activeId.value, proof, props.publicSlug);
+      consumedView.value = true;
+    }
     title.value = note.title;
     content.value = note.content;
     attachments.value = note.attachments || [];
     savedAttachments = copyAttachments(attachments.value);
     unlocked.value = true;
     password.value = "";
-  } catch {
+  } catch (error) {
     cryptoSession.close();
     cryptoSession = null;
-    message.value = "Incorrect password or damaged encrypted note.";
+    message.value = error.response?.status === 410
+      ? "This single-view note has already been viewed or expired."
+      : error.response?.status === 403
+        ? "The server rejected the single-view unlock proof."
+        : "Incorrect password or damaged encrypted note.";
   } finally {
     busy.value = false;
   }
@@ -279,13 +322,23 @@ async function save() {
   try {
     const markdown = editor.value.getMarkdown();
     const encryptedData = await cryptoSession.save(title.value.trim(), markdown, attachments.value);
+    const newPolicy = isNew.value && globalStore.config.expirationEnabled
+      ? expirationPolicy.value : null;
+    const verifier = newPolicy === "once" ? await cryptoSession.viewVerifier() : null;
     const result = await saveEncryptedNote(
       activeId.value, encryptedData, revision.value || "*", props.publicSlug,
+      newPolicy, verifier,
     );
     content.value = markdown;
     savedAttachments = copyAttachments(attachments.value);
     ciphertext.value = encryptedData;
     revision.value = result.revision;
+    if (newPolicy) {
+      expiration.value = { mode: newPolicy === "once" ? "once" : newPolicy === "none" ? "none" : "time",
+        policy: newPolicy, expiresAt: newPolicy === "none" || newPolicy === "once"
+          ? null : Math.floor(Date.now() / 1000) + Number(newPolicy.slice(0, -1)) *
+          (newPolicy.endsWith("h") ? 3600 : 86400) };
+    }
     editing.value = false;
     if (isNew.value) {
       await router.replace({ name: "encryptedNote", params: { id: activeId.value } });
@@ -318,8 +371,19 @@ function lock() {
   unlocked.value = false;
   editing.value = false;
   showSharing.value = false;
+  showExpiration.value = false;
+  consumedView.value = false;
   message.value = "";
   titleError.value = false;
+}
+
+function getViewVerifier() {
+  if (!cryptoSession) throw new Error("Unlock the note first");
+  return cryptoSession.viewVerifier();
+}
+
+function onExpirationUpdated(value) {
+  expiration.value = value;
 }
 
 function cancelEdit() {

@@ -100,6 +100,7 @@ def selected_expiration(policy):
 @router.get("/search", include_in_schema=False)
 @router.get("/new", include_in_schema=False)
 @router.get("/encrypted", include_in_schema=False)
+@router.get("/expiring", include_in_schema=False)
 @router.get("/note/{title}", include_in_schema=False)
 @router.get("/n/{title}", include_in_schema=False)
 @router.get("/e/{id}", include_in_schema=False)
@@ -200,6 +201,7 @@ if global_config.auth_type != AuthType.READ_ONLY:
         try:
             with publication_store.connection(write=True) as db:
                 created = note_storage.create(note)
+                expiration_store.remove("plain", note.title, db)
                 if policy != "none":
                     expiration_store.set("plain", note.title, policy, db=db)
                 created.expiration = expiration_store.get("plain", note.title, db)
@@ -494,6 +496,8 @@ async def put_encrypted_note(
             if not is_new:
                 ensure_active("encrypted", note_id, db)
             revision = encrypted_store.save(note_id, data, x_revision)
+            if is_new:
+                expiration_store.remove("encrypted", note_id, db)
             if is_new and policy != "none":
                 try:
                     expiration_store.set("encrypted", note_id, policy, x_view_verifier, db)
@@ -663,7 +667,7 @@ def set_note_expiration(title: str, settings: ExpirationSettings):
             ensure_active("plain", title, db)
             note_storage.get(title)
             result = expiration_store.set("plain", title, policy, db=db)
-        note_storage._sync_index_with_retry()
+        note_storage._sync_index_with_retry(optimize=True)
         return result
     except (ValueError, FileNotFoundError):
         raise HTTPException(404, "Note not found")

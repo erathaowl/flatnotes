@@ -48,6 +48,14 @@ export class EncryptedSession {
     return this.call("unlock", { noteId, password, ciphertext });
   }
 
+  viewVerifier() {
+    return this.call("viewVerifier", {});
+  }
+
+  viewProof() {
+    return this.call("viewProof", {});
+  }
+
   save(title, content, attachments = []) {
     return this.call("save", { title, content, attachments: copyAttachments(attachments) });
   }

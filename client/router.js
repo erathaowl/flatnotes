@@ -36,6 +36,11 @@ const router = createRouter({
       props: true,
     },
     {
+      path: "/expiring",
+      name: "expiringNotes",
+      component: () => import("./views/ExpiringNotes.vue"),
+    },
+    {
       path: "/encrypted",
       name: "encryptedNotes",
       component: () => import("./views/EncryptedNotes.vue"),

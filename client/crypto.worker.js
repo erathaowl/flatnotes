@@ -6,6 +6,11 @@ const PROFILE = Object.freeze({ memorySize: 65536, iterations: 3, parallelism: 1
 let documentKey = null;
 let envelope = null;
 let activeNoteId = null;
+let viewProof = null;
+
+function encodeHex(bytes) {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
 
 function randomBytes(length) {
   return crypto.getRandomValues(new Uint8Array(length));
@@ -45,7 +50,14 @@ async function derive(password, salt, parameters) {
     outputType: "binary",
   });
   try {
-    return await aesKey(result, ["encrypt", "decrypt"]);
+    const key = await aesKey(result, ["encrypt", "decrypt"]);
+    const macKey = await crypto.subtle.importKey(
+      "raw", result, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+    );
+    viewProof = new Uint8Array(
+      await crypto.subtle.sign("HMAC", macKey, aad("single-view", activeNoteId)),
+    );
+    return key;
   } finally {
     result.fill(0);
   }
@@ -153,6 +165,12 @@ self.onmessage = async ({ data: { callId, operation, payload } }) => {
     else if (operation === "save") {
       if (!documentKey) throw new Error("Note is locked");
       result = await encryptContent(payload.title, payload.content, payload.attachments || []);
+    } else if (operation === "viewProof") {
+      if (!documentKey || !viewProof) throw new Error("Note is locked");
+      result = encodeHex(viewProof);
+    } else if (operation === "viewVerifier") {
+      if (!documentKey || !viewProof) throw new Error("Note is locked");
+      result = encodeHex(new Uint8Array(await crypto.subtle.digest("SHA-256", viewProof)));
     } else throw new Error("Unsupported crypto operation");
     self.postMessage({ callId, result });
   } catch (error) {
