@@ -101,6 +101,20 @@ the note content. Cryptographic operations execute in a browser Web Worker.
 Passwords and decrypted note content are never sent to the server by
 protected-note APIs.
 
+Two optional environment variables configure password requirements **for new
+protected notes and conversions only**:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH` | `12` | Minimum password length (0 disables the length check) |
+| `FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES` | `0` | Minimum number of character categories, from 0 (disabled) to 4: lowercase, uppercase, numbers, symbols |
+
+Requirements are displayed and checked **in the browser**, without transmitting
+the protection password to the server. Existing encrypted notes continue to
+unlock with their original passwords even after these settings are changed.
+A protected note can be deleted from the **Protected Notes** list without
+knowing its password, after confirmation. This requires regular account access.
+
 The supported URL scheme is:
 
 - `/n/{title}`: normal Markdown note, subject to the usual login.

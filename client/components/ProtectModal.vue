@@ -5,6 +5,9 @@
       Encryption occurs in your browser. Store your password securely. Lost passwords
       cannot be recovered. Original plaintext may remain in backups or storage history.
     </p>
+    <p class="mb-3 text-xs text-theme-text-muted">
+      {{ passwordPolicyDescription(globalStore.config) }}
+    </p>
     <form @submit.prevent="protect">
       <label class="mb-1 block" for="protect-password">Protection password</label>
       <input
@@ -36,6 +39,8 @@
 <script setup>
 import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { useGlobalStore } from "../globalStore.js";
+import { passwordPolicyDescription, validateProtectionPassword } from "../passwordPolicy.js";
 import { protectPlainNote } from "../api.js";
 import { EncryptedSession, newEncryptedId } from "../cryptoSession.js";
 import CustomButton from "./CustomButton.vue";
@@ -44,6 +49,7 @@ import Modal from "./Modal.vue";
 const props = defineProps({ title: String, content: String, lastModified: Number });
 const isVisible = defineModel({ type: Boolean });
 const router = useRouter();
+const globalStore = useGlobalStore();
 const emit = defineEmits(["protected"]);
 const password = ref("");
 const confirmation = ref("");
@@ -52,8 +58,9 @@ const busy = ref(false);
 
 async function protect() {
   errorMessage.value = "";
-  if (password.value.length < 12) {
-    errorMessage.value = "Use a password of at least 12 characters.";
+  const passwordError = validateProtectionPassword(password.value, globalStore.config);
+  if (passwordError) {
+    errorMessage.value = passwordError;
     return;
   }
   if (password.value !== confirmation.value) {

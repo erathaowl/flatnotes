@@ -66,6 +66,8 @@ class PublicApiTests(unittest.TestCase):
         default_config = self.client.get("/api/config")
         self.assertEqual(default_config.status_code, 200)
         self.assertEqual(default_config.json()["siteTitle"], "flatnotes")
+        self.assertEqual(default_config.json()["encryptionPasswordMinLength"], 12)
+        self.assertEqual(default_config.json()["encryptionPasswordMinClasses"], 0)
         self.assertIsNone(default_config.json()["logoUrl"])
         self.assertIsNone(default_config.json()["faviconUrl"])
         self.assertEqual(self.client.get("/api/branding/logo").status_code, 404)
@@ -234,6 +236,36 @@ class PublicApiTests(unittest.TestCase):
             any(result["title"] == title for result in self.client.get(
                 "/api/search?term=Sensitive", headers=self.headers
             ).json())
+        )
+
+    def test_encrypted_listing_direct_url(self):
+        response = self.client.get("/encrypted")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<html>", response.text)
+
+    def test_delete_encrypted_note_without_unlocking(self):
+        from flatnotes import main
+
+        note_id = "9abc" * 8
+        with patch.object(main.global_config, "encryption_enabled", True):
+            created = self.client.put(
+                "/api/encrypted-notes/" + note_id,
+                content=b"opaque encrypted data",
+                headers={**self.headers, "X-Revision": "*"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+
+        # Deletion needs the account token, but never a note password.
+        self.assertEqual(
+            self.client.delete("/api/encrypted-notes/" + note_id).status_code, 401
+        )
+        deleted = self.client.delete(
+            "/api/encrypted-notes/" + note_id, headers=self.headers
+        )
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(
+            self.client.get("/api/encrypted-notes/" + note_id, headers=self.headers).status_code,
+            404,
         )
 
     def test_encrypted_html_security_headers(self):

@@ -68,6 +68,32 @@ At startup, flatnotes prints a QR code and a manual key. Scan the QR code using 
 | `FLATNOTES_ENCRYPTION_ENABLED` | `false` | Enable creation and protection of notes. Already encrypted notes remain readable when disabled. |
 | `FLATNOTES_SHARING_ENABLED` | `true` | Enable the Share dialog and public endpoints. Disabling it suspends all public links without deleting their metadata. |
 
+### Protected-note password policy
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH` | `12` | Minimum length for newly created passwords (0 to 1024; 0 disables minimum length) |
+| `FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES` | `0` | Minimum number of distinct character categories (0 to 4; 0 disables complexity enforcement) |
+
+The four categories are **lowercase**, **uppercase**, **numbers** and
+**symbols**. For example, `MIN_CLASSES=3` requires any three different
+categories, without requiring one specific combination.
+
+Example:
+
+```yaml
+environment:
+  FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "8"
+  FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "3"
+```
+
+Both parameters are exposed by `/api/config` so the browser can enforce
+them when creating a protected note or encrypting an existing Markdown
+note. The protection password itself remains in the browser. Existing
+encrypted notes can always be unlocked with their previous password.
+Account-authenticated users can delete an encrypted note without
+unlocking it.
+
 Normal notes are stored as `.md` files. Protected notes use opaque
 filenames ending in `.md.enc`. Encryption keys, passwords, titles and
 protected content are handled by the browser. The server stores ciphertext

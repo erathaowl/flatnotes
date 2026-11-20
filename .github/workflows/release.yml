@@ -60,6 +60,9 @@ jobs:
       - name: Test browser cryptography
         run: node scripts/test-crypto.mjs
 
+      - name: Test protected-note password policy
+        run: node scripts/test-password-policy.mjs
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Check project version

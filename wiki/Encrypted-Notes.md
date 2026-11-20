@@ -6,28 +6,46 @@ stored files remain ciphertext.
 
 ## Enabling encryption
 
-\`\`\`yaml
+```yaml
 environment:
   FLATNOTES_ENCRYPTION_ENABLED: "true"
   FLATNOTES_SHARING_ENABLED: "true"
-\`\`\`
+```
 
 Encryption is disabled by default. Disabling it later prevents new encryption
 and protected-note updates but preserves the ability to unlock existing
 protected notes. Sharing defaults to enabled; disabling it immediately
 suspends public access without erasing publication settings.
 
+## Password requirements
+
+The administrator can configure the minimum password length with
+`FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH` (default `12`, permitted 0–1024;
+`0` disables the length requirement), and the minimum number of character
+types with `FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES` (default `0`,
+permitted 0–4). Types are lowercase letters, uppercase letters, numbers
+and symbols. For example, `3` means three types out of four.
+
+The browser applies this policy only when protecting or creating a note.
+The server sends the settings through `/api/config` without receiving
+the user's protection password. Existing encrypted notes remain
+unlockable after a policy change.
+
+An authenticated user can permanently delete a protected note from the
+`/encrypted` list without its encryption password. The confirmation
+dialog warns that deleted ciphertext cannot be recovered.
+
 ## URLs
 
 | Type | Route |
 | --- | --- |
-| Normal Markdown note | \`/n/{title}\` |
-| Publicly shared note | \`/p/{slug}\` |
-| Encrypted protected note | \`/e/{id}\` |
+| Normal Markdown note | `/n/{title}` |
+| Publicly shared note | `/p/{slug}` |
+| Encrypted protected note | `/e/{id}` |
 
-The legacy \`/note/{title}\` route redirects in the browser to \`/n/{title}\`.
+The legacy `/note/{title}` route redirects in the browser to `/n/{title}`.
 Protected note identifiers are randomly generated opaque 128-bit values.
-Encrypted notes that are published also have a public \`/p/{slug}\` link,
+Encrypted notes that are published also have a public `/p/{slug}` link,
 and the browser prompts for a password before rendering the content.
 
 Passwords are entered in browser forms. They are never passed by URL query
@@ -40,13 +58,13 @@ request.
 - Password salt: random 128-bit per note.
 - Encrypted content key: 256-bit random per-note key, wrapped with AES-256-GCM.
 - Note contents: AES-256-GCM with a random 96-bit nonce and 128-bit tag.
-- AES: browser Web Crypto API. Argon2id: bundled \`hash-wasm\` WebAssembly,
+- AES: browser Web Crypto API. Argon2id: bundled `hash-wasm` WebAssembly,
   executed in a Web Worker.
 - Associated authenticated data binds wrapped keys and ciphertext to the
   note ID and file-format version.
 
 The envelope is a versioned JSON serialization of ciphertext and the
-cryptographic header, stored in \`/data/{id}.md.enc\`. The header contains
+cryptographic header, stored in `/data/{id}.md.enc`. The header contains
 KDF parameters, salt, nonces and wrapped key; the encrypted payload contains
 the title and Markdown content. The server does not inspect the encrypted
 payload and does not derive keys or decrypt it.
@@ -75,7 +93,7 @@ An unlocked note can be exported as a local Markdown file. An automatic
 "remove protection" action is intentionally absent: writing plaintext
 Markdown back to the server would violate the ciphertext-only requirement.
 
-Converting an existing \`.md\` file to \`.md.enc\` removes the active plaintext
+Converting an existing `.md` file to `.md.enc` removes the active plaintext
 file and invalidates its previous publication. It cannot guarantee erasure
 of historical plaintext from backups, filesystem snapshots, browser caches,
 or deleted search-index blocks. For previously sensitive plain notes,
@@ -84,7 +102,7 @@ review historic backups separately.
 ## Public encrypted sharing
 
 Use **Share** in an unlocked protected note. The server saves only the
-opaque note ID, chosen link suffix and \`read\`/\`edit\` permission.
+opaque note ID, chosen link suffix and `read`/`edit` permission.
 A public viewer downloads ciphertext, requests a local password and
 decrypts it in the browser. Anonymous editing, when explicitly enabled,
 uploads only new encrypted bytes.
@@ -116,15 +134,15 @@ localStorage or sessionStorage.
 
 ## API
 
-Authenticated endpoints include \`GET /api/encrypted-notes\`,
-\`GET/PUT/DELETE /api/encrypted-notes/{id}\`, and
-\`POST /api/encrypted-notes/protect/{title}/{id}\`.
-GET returns ciphertext. PUT requires an \`X-Revision\` checksum for
-optimistic concurrency, or \`*\` when creating a new note.
+Authenticated endpoints include `GET /api/encrypted-notes`,
+`GET/PUT/DELETE /api/encrypted-notes/{id}`, and
+`POST /api/encrypted-notes/protect/{title}/{id}`.
+GET returns ciphertext. PUT requires an `X-Revision` checksum for
+optimistic concurrency, or `*` when creating a new note.
 
 Encrypted publication management uses
-\`/api/encrypted-notes/{id}/publication\`.
-Anonymous ciphertext endpoints use \`/api/public/encrypted-notes/{slug}\`,
+`/api/encrypted-notes/{id}/publication`.
+Anonymous ciphertext endpoints use `/api/public/encrypted-notes/{slug}`,
 return ciphertext and accept writes only for explicitly editable links.
 
 See the [environment reference](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables)

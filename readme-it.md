@@ -92,6 +92,20 @@ chiave casuale per nota e i suoi contenuti. Tutte le operazioni crittografiche
 si svolgono in un Web Worker nel browser. Le API delle note cifrate
 ricevono esclusivamente dati cifrati.
 
+La politica per le password delle note cifrate è configurabile tramite due
+variabili d'ambiente:
+
+| Variabile | Default | Significato |
+| --- | --- | --- |
+| `FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH` | `12` | Lunghezza minima (0 disabilita il controllo sulla lunghezza) |
+| `FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES` | `0` | Numero minimo di categorie da 0 a 4: minuscole, maiuscole, numeri e simboli |
+
+I controlli vengono eseguiti soltanto nel browser quando si crea o si
+protegge una nota. Le password delle note già cifrate rimangono valide
+indipendentemente dalle modifiche alla politica. Dalla pagina **Protected
+Notes** si può eliminare una nota anche senza conoscere la sua password,
+confermando la cancellazione e usando il normale accesso all'applicazione.
+
 La struttura degli indirizzi è:
 
 - `/n/{titolo}`: nota normale in Markdown, con autenticazione ordinaria.

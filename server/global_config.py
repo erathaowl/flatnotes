@@ -12,6 +12,18 @@ class GlobalConfig:
         self.auth_type: AuthType = self._load_auth_type()
         self.encryption_enabled = get_env("FLATNOTES_ENCRYPTION_ENABLED", default=False, cast_bool=True)
         self.sharing_enabled = get_env("FLATNOTES_SHARING_ENABLED", default=True, cast_bool=True)
+        self.encryption_password_min_length = get_env(
+            "FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH", default=12, cast_int=True
+        )
+        self.encryption_password_min_classes = get_env(
+            "FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES", default=0, cast_int=True
+        )
+        if not 0 <= self.encryption_password_min_length <= 1024:
+            logger.error("FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH must be between 0 and 1024.")
+            sys.exit(1)
+        if not 0 <= self.encryption_password_min_classes <= 4:
+            logger.error("FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES must be between 0 and 4.")
+            sys.exit(1)
         self.quick_access_hide: bool = self._quick_access_hide()
         self.quick_access_title: str = self._quick_access_title()
         self.quick_access_term: str = self._quick_access_term()
@@ -137,6 +149,8 @@ class GlobalConfigResponseModel(CustomBaseModel):
     auth_type: AuthType
     encryption_enabled: bool = False
     sharing_enabled: bool = True
+    encryption_password_min_length: int = 12
+    encryption_password_min_classes: int = 0
     quick_access_hide: bool
     quick_access_title: str
     quick_access_term: str

@@ -12,7 +12,7 @@
 
     <div v-else-if="!unlocked" class="mx-auto max-w-md pt-12">
       <div class="mb-5 flex items-center gap-2 text-2xl font-semibold">
-        <span aria-hidden="true">🔒</span>
+        <SvgIcon type="mdi" :path="mdilLock" size="1.25em" class="shrink-0" />
         {{ isNew ? "Create protected note" : "Unlock protected note" }}
       </div>
       <p class="mb-4 text-sm text-theme-text-muted">
@@ -39,6 +39,9 @@
             class="mb-3 w-full rounded border border-theme-border bg-theme-background px-3 py-2"
           />
         </template>
+        <p v-if="isNew" class="mb-3 text-xs text-theme-text-muted">
+          {{ passwordPolicyDescription(globalStore.config) }}
+        </p>
         <p v-if="message" role="alert" class="mb-3 text-theme-danger">{{ message }}</p>
         <CustomButton :label="busy ? 'Working...' : isNew ? 'Continue' : 'Unlock'" :disabled="busy || !password" />
       </form>
@@ -61,27 +64,30 @@
           <p v-if="titleError" class="mt-1 text-sm text-theme-danger" role="alert">Title is required.</p>
         </div>
         <div class="flex flex-wrap items-center gap-1 print:hidden sm:gap-2">
-          <CustomButton label="Lock" @click="lock" />
+          <CustomButton :iconPath="mdilLock" label="Lock" @click="lock" />
           <CustomButton
             v-if="!publicSlug && globalStore.config.sharingEnabled"
+            :iconPath="mdilLink"
             label="Share"
             @click="showSharing = true"
           />
           <CustomButton
             v-if="!publicSlug"
+            :iconPath="mdilDownload"
             label="Export Markdown"
             @click="exportMarkdown"
           />
           <CustomButton
             v-if="!publicSlug"
+            :iconPath="mdilDelete"
             label="Delete"
             style="danger"
             @click="remove"
           />
-          <CustomButton v-if="canEdit && editing" label="Attach file" @click="fileInput?.click()" />
+          <CustomButton v-if="canEdit && editing" :iconPath="mdilPaperclip" label="Attach file" @click="fileInput?.click()" />
           <input ref="fileInput" type="file" class="hidden" @change="attachFile" />
-          <CustomButton v-if="canEdit && editing" label="Cancel" @click="cancelEdit" />
-          <CustomButton v-if="canEdit && editing" label="Save" :disabled="busy" @click="save" />
+          <CustomButton v-if="canEdit && editing" :iconPath="mdilCancel" label="Cancel" @click="cancelEdit" />
+          <CustomButton v-if="canEdit && editing" :iconPath="mdilContentSave" label="Save" :disabled="busy" @click="save" />
           <CustomButton v-if="canEdit && !editing" label="Edit" @click="editing = true" />
         </div>
       </header>
@@ -119,6 +125,11 @@
 </template>
 
 <script setup>
+import SvgIcon from "@jamescoyle/vue-icon";
+import {
+  mdilCancel, mdilContentSave, mdilDelete, mdilDownload,
+  mdilLink, mdilLock, mdilPaperclip,
+} from "@mdi/light-js";
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
@@ -133,6 +144,7 @@ import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
 import { EncryptedSession, copyAttachments, newEncryptedId } from "../cryptoSession.js";
 import { useGlobalStore } from "../globalStore.js";
+import { passwordPolicyDescription, validateProtectionPassword } from "../passwordPolicy.js";
 
 const props = defineProps({ id: String, publicSlug: String });
 const router = useRouter();
@@ -220,8 +232,9 @@ async function unlock() {
 }
 
 async function initializeNew() {
-  if (password.value.length < 12) {
-    message.value = "Use a password of at least 12 characters.";
+  const passwordError = validateProtectionPassword(password.value, globalStore.config);
+  if (passwordError) {
+    message.value = passwordError;
     return;
   }
   if (password.value !== confirmation.value) {

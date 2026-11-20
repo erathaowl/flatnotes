@@ -42,6 +42,7 @@ FRONTEND_DIR = Path(__file__).resolve().parent / "web" / "dist"
 @router.get("/login", include_in_schema=False)
 @router.get("/search", include_in_schema=False)
 @router.get("/new", include_in_schema=False)
+@router.get("/encrypted", include_in_schema=False)
 @router.get("/note/{title}", include_in_schema=False)
 @router.get("/n/{title}", include_in_schema=False)
 @router.get("/e/{id}", include_in_schema=False)
@@ -512,6 +513,8 @@ def get_config():
         auth_type=global_config.auth_type,
         encryption_enabled=global_config.encryption_enabled,
         sharing_enabled=global_config.sharing_enabled,
+        encryption_password_min_length=global_config.encryption_password_min_length,
+        encryption_password_min_classes=global_config.encryption_password_min_classes,
         quick_access_hide=global_config.quick_access_hide,
         quick_access_title=global_config.quick_access_title,
         quick_access_term=global_config.quick_access_term,

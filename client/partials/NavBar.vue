@@ -9,7 +9,7 @@
         <CustomButton :iconPath="mdilPlusCircle" label="New Note" />
       </RouterLink>
       <RouterLink v-if="showNewButton && globalStore.config.encryptionEnabled" :to="{ name: 'encryptedNote', params: { id: 'new' } }">
-        <CustomButton label="New Protected" />
+        <CustomButton :iconPath="mdilPlusCircle" label="New Protected" />
       </RouterLink>
       <!-- Menu -->
       <CustomButton
