@@ -20,16 +20,18 @@ mkdir -p "$test_dir/data"
   cd "$test_dir"
   export FLATNOTES_PATH="$test_dir/data"
   export FLATNOTES_AUTH_TYPE=none
+  export FLATNOTES_EXPECTED_VERSION="$(basename "$wheel" | cut -d- -f2)"
   "$test_dir/venv/bin/flatnotes" --help >/dev/null
 
   "$test_dir/venv/bin/python" - <<'PY'
+import os
 from importlib.metadata import version
 
 from fastapi.testclient import TestClient
 
 from flatnotes.main import FRONTEND_DIR, app
 
-assert version("flatnotes") == "6.0.0"
+assert version("flatnotes") == os.environ["FLATNOTES_EXPECTED_VERSION"]
 assert (FRONTEND_DIR / "index.html").is_file()
 assets = list((FRONTEND_DIR / "assets").rglob("*.js"))
 assert assets, "The wheel does not contain compiled frontend assets"

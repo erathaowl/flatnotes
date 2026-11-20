@@ -16,6 +16,11 @@ Example:
 ```
 
 In this example, the note is tagged `personal` and `holiday`.
+On ordinary notes, the server can index and filter these tags.
+On protected notes, the tags are part of encrypted Markdown
+and are **not visible to the Whoosh index** or to server-side
+tag search. Unlock protected notes individually to view their
+tags locally.
 
 Valid tag characters are ASCII letters (`a-z`, `A-Z`), digits (`0-9`), underscore (`_`), and hyphen (`-`). Tags are case-insensitive, so `#work`, `#Work`, and `#WORK` refer to the same tag.
 

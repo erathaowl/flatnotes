@@ -1,70 +1,101 @@
 # flatnotes Wiki
 
-Documentation for [erathaowl/flatnotes](https://github.com/erathaowl/flatnotes), a self-hosted Markdown notes application with per-note sharing and optional branding.
+Complete documentation for
+[erathaowl/flatnotes](https://github.com/erathaowl/flatnotes),
+a self-hosted Markdown note-taking application with optional
+browser-only encryption, selected-note publication, attachments,
+full-text search and custom branding.
 
-## Pages
+**Current release:** [v6.1.0](https://github.com/erathaowl/flatnotes/releases/tag/v6.1.0).
+[English README](https://github.com/erathaowl/flatnotes/blob/develop/README.md) ·
+[README italiano](https://github.com/erathaowl/flatnotes/blob/develop/readme-it.md) ·
+[GitHub Actions](https://github.com/erathaowl/flatnotes/actions)
 
-- [Environment Variables](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables) — Docker configuration, authentication, TOTP, and branding.
-- [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases) — installation, GHCR images, and CI/CD.
-- [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes) — share links, access modes, SQLite metadata, attachments, and API.
-- [Custom Branding](https://github.com/erathaowl/flatnotes/wiki/Custom-Branding) — custom title, logo, and favicon.
-- [Advanced Searching](https://github.com/erathaowl/flatnotes/wiki/Advanced-Searching) — query syntax and search fields.
-- [Tagging](https://github.com/erathaowl/flatnotes/wiki/Tagging) — assigning and finding tags.
-- [Image Support](https://github.com/erathaowl/flatnotes/wiki/Image-Support) — attachments and public note limitations.
-- [Keyboard Shortcuts](https://github.com/erathaowl/flatnotes/wiki/Keyboard-Shortcuts) — editor and navigation shortcuts.
+## Start here
 
-The project also ships an installable Python wheel with the complete web
-interface. See [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)
-for wheel installation, Docker and deployment information.
+1. [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases):
+   install with Docker Compose, wheel or an application archive.
+2. [Environment Variables](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables):
+   authentication, optional encryption, password policies and sharing flags.
+3. [Notes and Editor](https://github.com/erathaowl/flatnotes/wiki/Notes-and-Editor):
+   create, edit, search, protect and export notes.
+4. [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes):
+   protect an existing note, unlock, share, attach files and delete.
+5. [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes):
+   publish read-only or anonymous-editable links.
+6. [Operations and Backup](https://github.com/erathaowl/flatnotes/wiki/Operations-and-Backup):
+   upgrade safely and preserve persistent files.
 
-- [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes) — browser-only Argon2id/AES-GCM encryption, `.md.enc` storage, and encrypted sharing.
+## Reference and advanced topics
 
-## FAQ
+| Page | Description |
+| --- | --- |
+| [Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography) | Threat model, key hierarchy, Argon2id, AES-GCM and encrypted envelope |
+| [API Reference](https://github.com/erathaowl/flatnotes/wiki/API-Reference) | REST routes for ordinary, public and encrypted notes |
+| [Image Support](https://github.com/erathaowl/flatnotes/wiki/Image-Support) | Ordinary attachments, encrypted embedded files and limits |
+| [Advanced Searching](https://github.com/erathaowl/flatnotes/wiki/Advanced-Searching) | Whoosh query syntax and fields |
+| [Tagging](https://github.com/erathaowl/flatnotes/wiki/Tagging) | Hashtags, filtering and encrypted-note limitations |
+| [Keyboard Shortcuts](https://github.com/erathaowl/flatnotes/wiki/Keyboard-Shortcuts) | Navigation and editor key combinations |
+| [Custom Branding](https://github.com/erathaowl/flatnotes/wiki/Custom-Branding) | Site title, logo and favicon |
+| [Troubleshooting](https://github.com/erathaowl/flatnotes/wiki/Troubleshooting) | Direct URLs, browser crypto, passwords, sharing and saves |
 
-### Where are my notes stored?
+## How the application stores notes
 
-As Markdown files in the configured `FLATNOTES_PATH` directory (`/data` in Docker). Your note content is portable.
+| Kind | Storage | Visibility to server | Search |
+| --- | --- | --- | --- |
+| Ordinary note | `FLATNOTES_PATH/{title}.md` | Title and plaintext content | Indexed by Whoosh |
+| Protected note | `FLATNOTES_PATH/{random-id}.md.enc` | Opaque ID, ciphertext and timestamps | Excluded |
+| Ordinary attachments | `FLATNOTES_PATH/attachments/` | Plaintext files | Not full-text indexed |
+| Encrypted attachments | Embedded in the `.md.enc` envelope | Ciphertext only | Excluded |
+| Public link metadata | `FLATNOTES_PATH/.flatnotes-publications.db` | Slug, note reference, access rules | Not the note content |
 
-### Why is there a database?
+The `.flatnotes/` folder contains the regenerable Whoosh index.
+The publication database must be backed up; it is a separate
+persistent SQLite file.
 
-The fork stores publication settings, public URL slugs, and public attachment permissions in the SQLite file `/data/.flatnotes-publications.db`. Note content remains in Markdown files.
+## URLs and access
 
-### What is `.flatnotes/`?
+- `/n/{title}`: ordinary note.
+- `/encrypted`: list and manage protected notes.
+- `/e/{id}`: private protected note, unlocked with a separate password.
+- `/p/{slug}`: publicly shared note, with read or edit permission.
+- `/note/{title}`: legacy route, redirected in the client.
 
-It contains the regenerable Whoosh full-text search index. With the application stopped, you can remove this folder and let the application rebuild it at startup. Do not confuse it with `.flatnotes-publications.db`, which must be backed up.
+With `password` or `totp` authentication, only explicitly published
+notes can be accessed anonymously. Publicly shared encrypted notes
+still require a note password to decrypt locally.
 
-### Can I edit Markdown files externally?
+## Frequently asked questions
 
-Yes. The search index is synchronized when flatnotes starts and during searches. Public links reference existing note titles; renames or deletions performed directly on disk are not synchronized with publication metadata. An externally renamed note becomes unavailable through its former public link until it is republished.
+**Can I recover a protected note's password?** No. flatnotes
+does not know or store the note password. An account-authorized user
+can delete the ciphertext through `/encrypted` without unlocking it.
 
-### Can visitors read only specific notes without logging in?
+**Is a protected note searchable?** No. Its title, Markdown and tags
+are encrypted. The list displays opaque identifiers.
 
-Yes. Use authentication mode `password` or `totp` and publish selected notes individually through **Share**. Unpublished notes and the private search API still require authentication. The `none` and `read_only` modes are instance-wide and already allow anonymous note access.
+**Can I change the password-complexity policy?** Yes. Set the
+environment variables for minimum length and minimum number of
+character categories; they govern new passwords in the browser.
+Existing encrypted notes continue to unlock with their original
+passwords.
 
-### How do read-only and public editing differ?
+**Can I share protected notes?** Yes, when sharing is enabled.
+Visitors receive ciphertext through `/p/{slug}` and enter
+the encryption password into the browser.
 
-Published notes default to read-only. The owner can allow anonymous content edits, but visitors cannot rename, delete, or change sharing settings. Anyone who knows an editable link can modify its contents.
+**Does locking a note protect historical plaintext?** A note
+originally stored as `.md` may still exist in old backups,
+snapshots or deleted disk blocks. Existing encrypted files remain
+encrypted while stored.
 
-### What happens when I change a note's public URL?
+**Can I restore from backup?** Yes, if you preserve `.md`,
+`.md.enc`, ordinary attachments, the SQLite publication database
+and the note passwords needed for encrypted data.
 
-The previous link stops working. The owner can unpublish the note at any time. Renaming a note inside flatnotes keeps the current link stable.
+## Documentation maintenance
 
-### Can a public visitor open every attachment?
-
-No. Public note attachment endpoints use a per-note allowlist. Anonymous edits cannot expose additional private files by adding their names to Markdown. Owner edits can update the allowlist.
-
-### How do I back up my notes?
-
-Preserve the Markdown notes, attachments, and publication SQLite database. For a running application, use a SQLite-consistent backup or stop the container first.
-
-### Is there an API?
-
-Yes. Open `/docs` on your deployed flatnotes instance. The public note endpoints use `/api/public/notes/{slug}`; owner publication management uses `/api/notes/{title}/publication`.
-
-### Are folders supported?
-
-Notes are stored in a flat directory. Use full-text search and hashtags such as `#work` to organize them. Cross-note links use `[[Note Title]]`.
-
-## Documentation source
-
-These pages are maintained under [`wiki/`](https://github.com/erathaowl/flatnotes/tree/develop/wiki) in this repository. The [English README](https://github.com/erathaowl/flatnotes/blob/develop/README.md) and [Italian README](https://github.com/erathaowl/flatnotes/blob/develop/readme-it.md) summarize the application.
+The authoritative Markdown source for these pages lives in
+[`wiki/` on develop](https://github.com/erathaowl/flatnotes/tree/develop/wiki).
+The [Publish Wiki workflow](https://github.com/erathaowl/flatnotes/actions/workflows/publish-wiki.yml)
+synchronizes the repository directory with this GitHub Wiki.

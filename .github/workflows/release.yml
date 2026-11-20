@@ -96,6 +96,9 @@ jobs:
       - name: Create application package
         run: bash scripts/build-package.sh "${{ needs.version.outputs.version }}"
 
+      - name: Verify packaged documentation
+        run: bash scripts/test-package-docs.sh
+
       - uses: actions/upload-artifact@v4
         with:
           name: flatnotes-release-package
@@ -168,9 +171,13 @@ jobs:
               --target "$GITHUB_SHA" \
               --title "$RELEASE_TAG"
           else
+            notes_args=(--generate-notes)
+            if [[ -f ".github/release-notes/${RELEASE_TAG}.md" ]]; then
+              notes_args=(--notes-file ".github/release-notes/${RELEASE_TAG}.md")
+            fi
             gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.whl \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "$RELEASE_TAG" \
-              --generate-notes
+              "${notes_args[@]}"
           fi

@@ -17,6 +17,28 @@ Reopen Share to copy the active URL, change permissions, or unpublish. A note ha
 
 Example: `https://notes.example.com/p/my-shared-note`.
 
+## Sharing protected notes
+
+Encrypted notes also support `/p/{slug}`, but the public API sends
+ciphertext rather than readable Markdown. A visitor enters the
+encryption password into a browser form and decrypts locally.
+A public read-only link permits viewing after unlock; a public
+editable link permits ciphertext updates after unlock.
+
+For protected notes only **Random** and **Custom** slugs are
+available. The **Use note title** option is hidden because the
+title is encrypted and must not be disclosed to the server.
+Encrypted attachments remain inside the encrypted note envelope.
+
+Both ordinary and encrypted publications are controlled by
+`FLATNOTES_SHARING_ENABLED` (default `true`). Setting it to
+`false` causes public endpoints to return HTTP 404, hides
+the Share controls and retains publication records for later
+re-enabling. This flag is enforced by the backend.
+
+See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes)
+and [Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography).
+
 ## Public permissions
 
 | Operation | Private note | Published read-only | Published editable |
@@ -64,6 +86,18 @@ Markdown note content remains in `FLATNOTES_PATH`. Public URL slugs, permission 
 ```
 
 This file is separate from the rebuildable Whoosh search index in `/data/.flatnotes/`. Back up the publication DB using a SQLite-consistent method for live instances (or stop the container before copying DB files).
+
+## Slugs and security
+
+Slugs consist of 1–80 lowercase ASCII letters, digits or hyphens,
+starting and ending with a letter or digit. A random slug consists
+of 32 hex characters. Custom slugs are predictable; a public edit
+link must be treated as granting write access to anyone possessing
+it. No editor identity is attached to anonymous edits.
+
+When a source ordinary note is converted to encryption, its
+old public link is revoked. A protected note must be published
+again through its own Share dialog.
 
 ## API
 

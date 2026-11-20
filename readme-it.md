@@ -4,7 +4,7 @@
 
 # flatnotes
 
-Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, personalizzazione grafica e pubblicazione selettiva delle note. I contenuti rimangono normali file `.md`; Whoosh gestisce l'indice di ricerca e SQLite conserva **soltanto i metadati di pubblicazione**.
+Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, personalizzazione grafica e pubblicazione selettiva delle note. Le note ordinarie rimangono file `.md`; quelle protette vengono salvate in file `.md.enc` cifrati e decifrati soltanto nel browser. Whoosh indicizza le note ordinarie e SQLite conserva i metadati di pubblicazione.
 
 [English README](README.md) · [Documentazione / Wiki](wiki/Home.md) · [Immagini Docker](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes) · [Release](https://github.com/erathaowl/flatnotes/releases)
 
@@ -14,22 +14,37 @@ Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, per
 - Tag, collegamenti tra note (`[[Titolo Nota]]`), immagini e sezione di accesso rapido configurabile.
 - Autenticazione `none`, `read_only`, `password` oppure `totp`.
 - Pubblicazione di singole note tramite link casuale, derivato dal titolo o personalizzato, in sola lettura oppure con modifica anonima.
+- Note cifrate con Argon2id e AES-256-GCM, password richiesta solo nel browser e allegati protetti.
+- Lunghezza e complessità delle nuove password configurabili, cancellazione delle note cifrate anche senza conoscere la password.
+- Variabili d'ambiente per abilitare la cifratura e sospendere tutte le pubblicazioni.
 - Titolo, logo e favicon personalizzabili attraverso variabili d'ambiente.
 - API REST, immagini Docker su GHCR, build automatizzate e release versionate.
 
+## Guide rapide
+
+| Argomento | Documentazione |
+| --- | --- |
+| Installazione Docker o wheel | [Docker and Releases](wiki/Docker-and-Releases.md) |
+| Tutte le variabili d'ambiente | [Environment Variables](wiki/Environment-Variables.md) |
+| Creazione e modifica delle note | [Notes and Editor](wiki/Notes-and-Editor.md) |
+| Cifratura e gestione password | [Encrypted Notes](wiki/Encrypted-Notes.md), [Security and Cryptography](wiki/Security-and-Cryptography.md) |
+| Condivisione | [Publishing Notes](wiki/Publishing-Notes.md) |
+| Backup, manutenzione e problemi comuni | [Operations and Backup](wiki/Operations-and-Backup.md), [Troubleshooting](wiki/Troubleshooting.md) |
+| API | [API Reference](wiki/API-Reference.md) |
+
 ## Installazione tramite wheel Python
 
-Le release includono anche il file `flatnotes-6.0.0-py3-none-any.whl`,
+Le release includono anche il file `flatnotes-6.1.0-py3-none-any.whl`,
 contenente **backend FastAPI, frontend Vue già compilato e comando `flatnotes`**.
 Sul server è sufficiente **Python 3.13**, senza bisogno di Node.js o Docker.
 
-Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.0.0),
+Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.1.0),
 poi esegui:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.0.0-py3-none-any.whl
+pip install flatnotes-6.1.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -57,7 +72,7 @@ Crea un file `compose.yaml`:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:develop
+    image: ghcr.io/erathaowl/flatnotes:v6.1.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -68,6 +83,10 @@ services:
       FLATNOTES_USERNAME: "admin"
       FLATNOTES_PASSWORD: "${FLATNOTES_PASSWORD}"
       FLATNOTES_SECRET_KEY: "${FLATNOTES_SECRET_KEY}"
+      FLATNOTES_ENCRYPTION_ENABLED: "true"
+      FLATNOTES_SHARING_ENABLED: "true"
+      FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "12"
+      FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "0"
     volumes:
       - ./data:/data
     restart: unless-stopped
@@ -79,7 +98,7 @@ Prepara un file `.env` contenente `FLATNOTES_PASSWORD` e `FLATNOTES_SECRET_KEY`,
 docker compose up -d
 ```
 
-Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. Il tag `:develop` contiene le build del ramo di sviluppo; `:latest` è aggiornato soltanto dalle release versionate.
+Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.1.0`; `:latest` indica l'ultima release pubblicata, mentre `:develop` è destinato ai test delle build di sviluppo.
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
@@ -105,6 +124,18 @@ protegge una nota. Le password delle note già cifrate rimangono valide
 indipendentemente dalle modifiche alla politica. Dalla pagina **Protected
 Notes** si può eliminare una nota anche senza conoscere la sua password,
 confermando la cancellazione e usando il normale accesso all'applicazione.
+
+### Uso delle note protette
+
+1. Premi **New Protected** oppure apri **Protected Notes** (`/encrypted`) e scegli **New protected note**.
+2. Imposta la password di protezione e confermala. I requisiti configurati vengono mostrati nella finestra.
+3. Inserisci titolo e contenuto, quindi premi **Save**. Il server riceve soltanto dati cifrati.
+4. Per riaprire la nota usa `/e/{id}` e inserisci la password nel browser.
+5. Usa **Lock** al termine. Con **Share** puoi pubblicare un collegamento cifrato `/p/{slug}`.
+
+Per proteggere una nota normale già salvata, aprila in visualizzazione e scegli **Protect**. La conversione sostituisce il file Markdown attivo e revoca eventuali condivisioni precedenti. Gli allegati esterni devono prima essere rimossi o incorporati.
+
+La lista **Protected Notes** mostra identificativi casuali. Il pulsante rosso Delete consente di eliminare una nota anche senza conoscerne la password, purché l'utente possa modificare i dati dell'applicazione. Il recupero della password, il suo cambio e la conversione automatica della nota cifrata in Markdown non sono attualmente previsti.
 
 La struttura degli indirizzi è:
 
@@ -182,12 +213,13 @@ La durata standard della sessione JWT è di 30 giorni, modificabile con `FLATNOT
 
 ## Persistenza e backup
 
-- `/data/*.md`: note in Markdown.
+- `/data/*.md`: note ordinarie in Markdown.
+- `/data/*.md.enc`: note cifrate, da conservare insieme alle relative password.
 - `/data/attachments/`: allegati.
 - `/data/.flatnotes/`: indice Whoosh ricreabile.
 - `/data/.flatnotes-publications.db`: database SQLite dei link pubblici e relativi permessi.
 
-Salva note, allegati e database nei backup. A container avviato utilizza una procedura compatibile con SQLite, oppure arresta il servizio prima della copia. L'indice Whoosh può essere ricreato; il database delle pubblicazioni va conservato.
+Salva note ordinarie, file cifrati, allegati e database nei backup. A container avviato utilizza una procedura compatibile con SQLite, oppure arresta il servizio prima della copia. L'indice Whoosh può essere ricreato; il database delle pubblicazioni va conservato.
 
 ## CI/CD e release
 
@@ -197,6 +229,6 @@ Un tag `vX.Y.Z` (oppure `vX.Y`, normalizzato in `vX.Y.0`) pubblica l'immagine ve
 
 ## Documentazione e licenza
 
-Le pagine della wiki sono disponibili nella directory [`wiki/`](wiki/Home.md), versionate con il codice. Possono essere sincronizzate con la [Wiki GitHub del fork](https://github.com/erathaowl/flatnotes/wiki) una volta inizializzata. Consulta anche [CONTRIBUTING.md](CONTRIBUTING.md) e [LICENSE](LICENSE).
+Le pagine della wiki sono disponibili nella directory [`wiki/`](wiki/Home.md), versionate con il codice. Sono sincronizzate con la [Wiki GitHub del fork](https://github.com/erathaowl/flatnotes/wiki) tramite GitHub Actions. Consulta anche [CONTRIBUTING.md](CONTRIBUTING.md) e [LICENSE](LICENSE).
 
 Questo fork deriva da [flatnotes](https://github.com/dullage/flatnotes) e utilizza [Whoosh](https://whoosh.readthedocs.io/) e [TOAST UI Editor](https://ui.toast.com/tui-editor).

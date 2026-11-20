@@ -1,12 +1,17 @@
-**flatnotes**
+**flatnotes v6.1.0**
 
 - [Home](https://github.com/erathaowl/flatnotes/wiki/Home)
-- [Environment Variables](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables)
 - [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)
-- [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes)
+- [Environment Variables](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables)
+- [Notes and Editor](https://github.com/erathaowl/flatnotes/wiki/Notes-and-Editor)
 - [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes)
-- [Custom Branding](https://github.com/erathaowl/flatnotes/wiki/Custom-Branding)
+- [Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography)
+- [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes)
+- [Image Support](https://github.com/erathaowl/flatnotes/wiki/Image-Support)
 - [Advanced Searching](https://github.com/erathaowl/flatnotes/wiki/Advanced-Searching)
 - [Tagging](https://github.com/erathaowl/flatnotes/wiki/Tagging)
-- [Image Support](https://github.com/erathaowl/flatnotes/wiki/Image-Support)
 - [Keyboard Shortcuts](https://github.com/erathaowl/flatnotes/wiki/Keyboard-Shortcuts)
+- [Custom Branding](https://github.com/erathaowl/flatnotes/wiki/Custom-Branding)
+- [API Reference](https://github.com/erathaowl/flatnotes/wiki/API-Reference)
+- [Operations and Backup](https://github.com/erathaowl/flatnotes/wiki/Operations-and-Backup)
+- [Troubleshooting](https://github.com/erathaowl/flatnotes/wiki/Troubleshooting)

@@ -14,6 +14,7 @@ fi
 mkdir -p "$staging_dir/flatnotes/client" "$output_dir"
 cp -R server "$staging_dir/flatnotes/server"
 cp -R client/dist "$staging_dir/flatnotes/client/dist"
-cp pyproject.toml uv.lock .python-version README.md LICENSE "$staging_dir/flatnotes/"
+cp pyproject.toml uv.lock .python-version README.md readme-it.md LICENSE "$staging_dir/flatnotes/"
+cp -R wiki docs "$staging_dir/flatnotes/"
 
 tar -czf "$output_dir/flatnotes-${version}.tar.gz" -C "$staging_dir" flatnotes

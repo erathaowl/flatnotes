@@ -24,6 +24,35 @@ Attachments referenced by the note when first published are included in its allo
 
 A filename absent from the note's allowlist returns HTTP 404. Published attachment access is revoked when the publication is removed.
 
+## Attachments inside encrypted notes
+
+Protected-note attachments follow a different workflow:
+
+1. Unlock the note in the browser, select **Edit** and **Attach file**.
+2. The browser reads the file as a data URL and includes it in the
+   protected note's encrypted content.
+3. **Save** encrypts the note and embedded attachment data together.
+4. Open the note later, unlock it and select an attachment to
+   download the plaintext locally.
+
+The total embedded attachment limit in the editor is **2 MiB**;
+the complete encrypted envelope may not exceed **4 MiB** at the
+backend. There is no separate unencrypted attachment API for
+protected-note files. Inline pasted images can be embedded as
+data URLs in Markdown and encrypted with it.
+
+Before converting an existing ordinary note to encryption, remove
+or embed its references to plaintext files or externally hosted
+images. The Protect dialog blocks recognized external attachment
+references. A plain attachment file left on disk is not
+automatically encrypted by converting the note itself.
+
+For the complete threat model, see
+[Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography).
+
 ## Backup
 
-Include the `attachments/` directory in backups. Publication attachment permissions are stored in the SQLite database at `/data/.flatnotes-publications.db`. See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
+Back up `attachments/` for ordinary notes, all `*.md.enc` files
+for protected notes and the SQLite publication database
+`/data/.flatnotes-publications.db`. A protected file can only
+be recovered with its encryption password. See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).

@@ -2,15 +2,15 @@
 
 ## Python wheel
 
-Download the `flatnotes-6.0.0-py3-none-any.whl` asset from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.0.0).
+Download the `flatnotes-6.1.0-py3-none-any.whl` asset from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.1.0).
 It includes the FastAPI backend and compiled Vue frontend. Installation requires
 Python 3.13, but neither Node.js nor Docker:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.0.0-py3-none-any.whl
+pip install flatnotes-6.1.0-py3-none-any.whl
 export FLATNOTES_PATH="/var/lib/flatnotes"
 export FLATNOTES_AUTH_TYPE="password"
 export FLATNOTES_USERNAME="admin"
@@ -32,6 +32,8 @@ Add these variables to the Docker Compose service:
 environment:
   FLATNOTES_ENCRYPTION_ENABLED: "true"
   FLATNOTES_SHARING_ENABLED: "true"
+  FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "12"
+  FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "0"
 ```
 
 Encrypted notes use `/data/{id}.md.enc` and are not indexed by Whoosh.
@@ -55,7 +57,7 @@ The `develop` tag is updated after pushes to the development branch. Tagged Git 
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:develop
+    image: ghcr.io/erathaowl/flatnotes:v6.1.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -66,6 +68,10 @@ services:
       FLATNOTES_USERNAME: "admin"
       FLATNOTES_PASSWORD: "${FLATNOTES_PASSWORD}"
       FLATNOTES_SECRET_KEY: "${FLATNOTES_SECRET_KEY}"
+      FLATNOTES_ENCRYPTION_ENABLED: "true"
+      FLATNOTES_SHARING_ENABLED: "true"
+      FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "12"
+      FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "0"
     volumes:
       - ./data:/data
     restart: unless-stopped
@@ -73,7 +79,11 @@ services:
 
 Configure the two required secrets in a local `.env` file, then run `docker compose up -d`. Open `http://localhost:8080`.
 
-The volume contains Markdown notes, attachments, search index, and SQLite publication metadata. Keep the volume when upgrading.
+The volume contains Markdown notes, encrypted `.md.enc` notes,
+ordinary attachments, the search index and SQLite publication metadata.
+Keep it mounted across upgrades. Add your password and JWT secret to
+a local `.env` file (avoid committing it). Use HTTPS when opening
+protected notes from phones or other remote devices.
 
 ## Docker run alternative
 
@@ -87,7 +97,7 @@ docker run -d --name flatnotes \
   -e FLATNOTES_SECRET_KEY="$FLATNOTES_SECRET_KEY" \
   -v "$(pwd)/data:/data" \
   --restart unless-stopped \
-  ghcr.io/erathaowl/flatnotes:develop
+  ghcr.io/erathaowl/flatnotes:v6.1.0
 ```
 
 ## CI/CD
@@ -95,11 +105,14 @@ docker run -d --name flatnotes \
 | Workflow | Trigger | Output |
 | --- | --- | --- |
 | Build | Push to `develop`, pull request targeting `develop`, manual run | Compiled frontend, Python tests, application archive and Python wheel; Docker image for pushes |
-| Release | Push of `vX.Y.Z` or `vX.Y` tag | GitHub Release archive, Python wheel, and GHCR image |
+| Release | Version tag or release-request file update on `develop` | GitHub Release archive, Python wheel, and GHCR image |
 
 Build pushes create image tags `:develop` and `:sha-<commit>`. Pull requests do not push to GHCR.
 
-Release tags `vX.Y` are normalized to `vX.Y.0` for the published image and release name. The release workflow builds and tests the code, pushes `:vX.Y.Z` and `:latest` to GHCR, and attaches a `.tar.gz` application bundle and installable Python wheel to the GitHub Release. The bundle includes compiled frontend assets and Python backend sources and can be installed using the locked `uv` dependencies. It is not a Python wheel.
+Release tags `vX.Y` are normalized to `vX.Y.0` for the published image and release name. The release workflow builds and tests the code, pushes `:vX.Y.Z` and `:latest` to GHCR, and attaches a `.tar.gz` application bundle and installable Python wheel to the GitHub Release. The bundle includes compiled frontend assets, Python backend sources,
+English and Italian READMEs, branding reference files and the complete
+`wiki/` documentation directory. It can be installed using the locked
+`uv` dependencies. It is not a Python wheel.
 
 See [GitHub Actions](https://github.com/erathaowl/flatnotes/actions), [GHCR image](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes), and [Releases](https://github.com/erathaowl/flatnotes/releases).
 
@@ -110,6 +123,15 @@ docker compose pull
 docker compose up -d
 ```
 
-No environment variables are required for public note sharing beyond normal authentication setup. Publication state persists in `/data/.flatnotes-publications.db`.
+Public note sharing is enabled by default and can be suspended by
+setting `FLATNOTES_SHARING_ENABLED=false`. Encryption is disabled by
+default and can be enabled with `FLATNOTES_ENCRYPTION_ENABLED=true`.
+Publication state persists in `/data/.flatnotes-publications.db`,
+including across feature-flag changes.
+
+A consistent backup must include `*.md`, `*.md.enc`,
+`attachments/` and the SQLite publication database. Use
+[Operations and Backup](https://github.com/erathaowl/flatnotes/wiki/Operations-and-Backup)
+for a safe upgrade and restore checklist.
 
 Related: [Environment Variables](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables), [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes), and [Custom Branding](https://github.com/erathaowl/flatnotes/wiki/Custom-Branding).

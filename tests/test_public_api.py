@@ -238,6 +238,47 @@ class PublicApiTests(unittest.TestCase):
             ).json())
         )
 
+    def test_sharing_flag_blocks_all_plaintext_publication_routes(self):
+        from flatnotes import main
+
+        self.create_note("PrivateWhenDisabled", "Secret markdown")
+        publication = self.publish(
+            "PrivateWhenDisabled", "custom", "edit", "sharing-toggle",
+        )
+        slug = publication["slug"]
+        with patch.object(main.global_config, "sharing_enabled", False):
+            self.assertEqual(
+                self.client.get("/api/notes/PrivateWhenDisabled/publication", headers=self.headers).status_code,
+                404,
+            )
+            self.assertEqual(
+                self.client.put(
+                    "/api/notes/PrivateWhenDisabled/publication",
+                    json={"slugMode": "random", "permission": "read"},
+                    headers=self.headers,
+                ).status_code,
+                404,
+            )
+            self.assertEqual(
+                self.client.delete(
+                    "/api/notes/PrivateWhenDisabled/publication", headers=self.headers,
+                ).status_code,
+                404,
+            )
+            self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 404)
+            self.assertEqual(
+                self.client.patch(
+                    "/api/public/notes/" + slug,
+                    json={"newContent": "changed", "revision": "0" * 64},
+                ).status_code,
+                404,
+            )
+            self.assertEqual(
+                self.client.get("/api/public/notes/" + slug + "/attachments/example.png").status_code,
+                404,
+            )
+        self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 200)
+
     def test_encrypted_listing_direct_url(self):
         response = self.client.get("/encrypted")
         self.assertEqual(response.status_code, 200)

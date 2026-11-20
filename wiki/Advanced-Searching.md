@@ -2,6 +2,18 @@
 
 flatnotes uses Whoosh for full-text search over note titles, content, and tags. These searches are available after authentication in `password` and `totp` modes. The public link viewer does not provide anonymous global search.
 
+## Which notes can be searched?
+
+Whoosh indexes ordinary `.md` files and provides results for
+their titles, Markdown content and tags. Protected `.md.enc` notes
+are **not indexed**: the server does not have their decrypted
+contents or titles. Visit `/encrypted` to list opaque protected-note
+identifiers, then unlock a note locally to view its title.
+
+Public `/p/{slug}` pages do not expose the private global search
+interface. See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes)
+for the encrypted workflow.
+
 ## AND and OR searches
 
 - `this that` searches for notes containing **both** terms (AND is the default).

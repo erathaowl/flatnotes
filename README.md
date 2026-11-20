@@ -7,9 +7,9 @@
 
 # flatnotes
 
-A lightweight, self-hosted Markdown note-taking application with search, tags, configurable branding, and selective note sharing. Notes remain ordinary `.md` files. A Whoosh index supports search; a small SQLite database stores **only publication metadata**.
+A lightweight, self-hosted Markdown note-taking application with search, tags, configurable branding, and selective note sharing. Ordinary notes are portable `.md` files; protected notes are encrypted `.md.enc` envelopes whose encryption and decryption occur exclusively in the browser. Whoosh indexes ordinary notes; SQLite stores publication metadata.
 
-[Documentazione in italiano](readme-it.md) · [Documentation / Wiki sources](wiki/Home.md) · [Container images](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes) · [Releases](https://github.com/erathaowl/flatnotes/releases)
+[Documentazione in italiano](readme-it.md) · [Full documentation](wiki/Home.md) · [Container images](https://github.com/erathaowl/flatnotes/pkgs/container/flatnotes) · [Releases](https://github.com/erathaowl/flatnotes/releases)
 
 ## Features
 
@@ -17,8 +17,23 @@ A lightweight, self-hosted Markdown note-taking application with search, tags, c
 - Tags, wiki-style links (`[[Note Title]]`), image attachments, and configurable quick-access notes.
 - Authentication modes: `none`, `read_only`, `password`, and `totp`.
 - **Per-note publication** with anonymous read-only access or optional anonymous editing. Each published note has a random, title-derived, or custom URL.
+- Protected notes with Argon2id + AES-256-GCM, unlock in the browser, encrypted attachments and no decryption password sent to FastAPI.
+- Configurable password length and character categories for newly protected notes; permanent deletion by an authenticated user even if the note password is lost.
+- Per-feature environment flags to enable encryption and suspend sharing without erasing publication settings.
 - Custom application title, logo, and favicon through environment variables.
 - REST API, Docker image hosted on GHCR, automated builds and versioned releases.
+
+## Quick navigation
+
+| Need | Guide |
+| --- | --- |
+| Install Docker, GHCR or wheel | [Docker and Releases](wiki/Docker-and-Releases.md) |
+| Configure all environment variables | [Environment Variables](wiki/Environment-Variables.md) |
+| Create/edit ordinary and protected notes | [Notes and Editor](wiki/Notes-and-Editor.md) |
+| Understand encryption and limitations | [Encrypted Notes](wiki/Encrypted-Notes.md) and [Security and Cryptography](wiki/Security-and-Cryptography.md) |
+| Publish notes and revoke links | [Publishing Notes](wiki/Publishing-Notes.md) |
+| Backup, migrate or troubleshoot | [Operations and Backup](wiki/Operations-and-Backup.md), [Troubleshooting](wiki/Troubleshooting.md) |
+| Integrate through API | [API Reference](wiki/API-Reference.md) |
 
 ## Python wheel (without Docker)
 
@@ -26,13 +41,13 @@ Release assets include a standalone Python wheel containing the FastAPI backend,
 the complete compiled Vue frontend, and the `flatnotes` command-line launcher.
 The target machine needs **Python 3.13**, but **does not need Node.js**.
 
-Download `flatnotes-6.0.0-py3-none-any.whl` from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.0.0), then run:
+Download `flatnotes-6.1.0-py3-none-any.whl` from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.1.0), then run:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.0.0-py3-none-any.whl
+pip install flatnotes-6.1.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -65,7 +80,7 @@ Create a `compose.yaml` file:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:develop
+    image: ghcr.io/erathaowl/flatnotes:v6.1.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -76,6 +91,10 @@ services:
       FLATNOTES_USERNAME: "admin"
       FLATNOTES_PASSWORD: "${FLATNOTES_PASSWORD}"
       FLATNOTES_SECRET_KEY: "${FLATNOTES_SECRET_KEY}"
+      FLATNOTES_ENCRYPTION_ENABLED: "true"
+      FLATNOTES_SHARING_ENABLED: "true"
+      FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH: "12"
+      FLATNOTES_ENCRYPTION_PASSWORD_MIN_CLASSES: "0"
     volumes:
       - ./data:/data
     restart: unless-stopped
@@ -87,7 +106,7 @@ Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, usin
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. Use `:develop` for the current development build; `:latest` refers to the latest tagged release (and is only available once a release has been published).
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.1.0` release. Use `:latest` for the latest published release or `:develop` only when testing the current development branch.
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
@@ -114,6 +133,18 @@ the protection password to the server. Existing encrypted notes continue to
 unlock with their original passwords even after these settings are changed.
 A protected note can be deleted from the **Protected Notes** list without
 knowing its password, after confirmation. This requires regular account access.
+
+### How to use protected notes
+
+1. Choose **New Protected** or open **Protected Notes** (`/encrypted`) and select **New protected note**.
+2. Enter and confirm the new protection password. Password requirements appear beside the form.
+3. Write the note, provide a title and select **Save**. The server receives only ciphertext.
+4. Open the note later at `/e/{id}` and enter the password in the unlock form.
+5. Use **Lock** when finished. **Share** creates an optional public ciphertext link at `/p/{slug}`.
+
+To encrypt a saved ordinary note, open it at `/n/{title}`, exit Edit mode and select **Protect**. Conversion replaces the active Markdown file and revokes any previous publication. Images and external attachments must be embedded or removed before conversion. A saved plaintext source may still remain in older backups or deleted disk blocks.
+
+The **Protected Notes** list shows only opaque IDs. Its red delete icon can permanently remove a note even when its protection password is forgotten, provided the user has application write permission. Password recovery, password rotation and automatic removal of protection are not implemented.
 
 The supported URL scheme is:
 
@@ -188,12 +219,13 @@ The default JWT session lifetime is 30 days, configurable with `FLATNOTES_SESSIO
 
 ## Data and backups
 
-- `/data/*.md`: note files, portable to other Markdown editors.
+- `/data/*.md`: ordinary notes, portable to other Markdown editors.
+- `/data/*.md.enc`: protected ciphertext notes, requiring their individual passwords.
 - `/data/attachments/`: uploaded images and other attachments.
 - `/data/.flatnotes/`: regenerable Whoosh search index.
 - `/data/.flatnotes-publications.db`: persistent SQLite publication settings and public attachment permissions.
 
-Back up the Markdown files, attachments, and SQLite database. For a running container, use a SQLite-consistent backup (or stop the container before copying SQLite files). Removing the Whoosh index is safe while the application is stopped; keep the publication database.
+Back up ordinary notes, encrypted envelopes, attachments, and the SQLite database. For a running container, use a SQLite-consistent backup (or stop the container before copying SQLite files). Removing the Whoosh index is safe while the application is stopped; keep the publication database.
 
 ## Builds and releases
 
@@ -203,7 +235,7 @@ Pushing a version tag `vX.Y.Z` (or `vX.Y`, normalized to `vX.Y.0`) builds and pu
 
 ## Documentation
 
-The wiki sources live in [`wiki/`](wiki/Home.md) and are version-controlled alongside the application. They can also be published to the [GitHub Wiki](https://github.com/erathaowl/flatnotes/wiki) when the wiki is initialized. Consult [Home](wiki/Home.md) for links to search syntax, tagging, attachments, authentication, publishing, branding, and CI/CD.
+The wiki sources live in [`wiki/`](wiki/Home.md), are version-controlled with the application and are synchronized to the [GitHub Wiki](https://github.com/erathaowl/flatnotes/wiki) by GitHub Actions. Start at [Home](wiki/Home.md) for the full reference, including security boundaries, API examples, backups, browser compatibility, and troubleshooting.
 
 ## Contributing and license
 

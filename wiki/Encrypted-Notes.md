@@ -17,6 +17,38 @@ and protected-note updates but preserves the ability to unlock existing
 protected notes. Sharing defaults to enabled; disabling it immediately
 suspends public access without erasing publication settings.
 
+## Create, protect and unlock notes
+
+**Create a new protected note:** choose **New Protected** in the
+navigation bar (or open `/encrypted` and select **New protected note**).
+Enter and confirm the protection password, then provide a title and
+content in the editor. The file is created only when the first
+**Save** succeeds. The filename uses a random 128-bit ID.
+
+**Protect an ordinary note:** save the existing `.md` note, open
+`/n/{title}`, exit Edit mode, and select **Protect**. The browser
+encrypts title and content. Before conversion, remove or embed
+external plaintext attachments. The server checks that the source
+has not changed, writes ciphertext, removes the active plaintext file,
+revokes its old publication and removes it from the search index.
+
+**Unlock:** navigate to `/e/{id}`, enter the protection password
+in the browser prompt and choose **Unlock**. The browser downloads
+ciphertext and derives its own decryption key. The password never
+appears in the URL or encrypted-note API.
+
+**Edit and lock:** once unlocked, choose **Edit**, modify the title,
+Markdown or attachments, and save. **Lock** clears the active
+browser view and closes the worker, requiring a password next time.
+The editor uses outline icons and puts the title on its own row
+above the commands on mobile screens.
+
+**Delete without a password:** choose **Protected Notes** from the
+menu, locate the opaque ID on `/encrypted`, select its red
+Delete icon and confirm. The encrypted file and publication record
+are removed by the account-authorized operation. The encryption
+password is not needed to delete ciphertext.
+
 ## Password requirements
 
 The administrator can configure the minimum password length with
@@ -73,6 +105,24 @@ Each edit produces fresh AES-GCM nonces. The browser retains the nonextractable
 data key only during the unlocked session. Locking or closing the page
 terminates the Web Worker. Changing a browser session requires the password
 again.
+
+## What is stored and what is not
+
+The format version 1 envelope is a **JSON serialization**, with
+fields for `version`, `noteId`, Argon2id parameters, the random
+salt, a wrapped data key, a data nonce and ciphertext. The server
+has no decryption key or plaintext title.
+
+- A random note ID is visible to the server and used in the filename.
+- An encrypted file has a **4 MiB** maximum size.
+- Normal Whoosh search excludes encrypted titles and Markdown.
+- The browser's unlocked editor can show decrypted text; the
+  plaintext is not persisted in the ordinary draft store.
+- All encrypted files and their required passwords must be preserved
+  when migrating or backing up an instance.
+
+For the exact envelope and threat model, see
+[Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography).
 
 ## Storage, notes and attachments
 
@@ -131,6 +181,21 @@ The Argon2id WASM bundle must be served from the same origin as the app.
 An encrypted-note page uses restrictive CSP rules, including blocking
 external images and frames. Encrypted plaintext drafts are not written to
 localStorage or sessionStorage.
+
+## Recovery, compatibility and current limitations
+
+- **Password recovery:** not available. Deleting a note without its
+  password is possible, but decrypting it is not.
+- **Change password:** not implemented in 6.1.0.
+- **Remove protection:** not implemented; exporting unlocked Markdown
+  produces a local plaintext copy instead.
+- **Password policy:** affects newly created protection passwords,
+  not the ability to unlock existing notes after configuration changes.
+- **Mobile compatibility:** requires HTTPS when accessing the app
+  from another phone or machine; Web Crypto and WebAssembly run
+  inside the browser.
+- **Historic plaintext:** protecting a previous ordinary note
+  cannot securely erase snapshots, old backups or disk remnants.
 
 ## API
 

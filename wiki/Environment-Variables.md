@@ -12,7 +12,10 @@ This is the configuration reference for [erathaowl/flatnotes](https://github.com
 | `FLATNOTES_PORT` | `8080` in Docker | Listening port inside the container |
 | `PUID` / `PGID` | `1000` | UID/GID for file permissions when container starts as root |
 
-The configured directory must be writable. The application keeps notes as `.md` files, attachments in `attachments/`, and a regenerable Whoosh index in `.flatnotes/`.
+The configured directory must be writable. Ordinary notes are plaintext
+`.md` files, while protected notes use encrypted `.md.enc` envelopes.
+Ordinary attachments live in `attachments/`; `.flatnotes/` is the regenerable
+Whoosh index for ordinary notes. See [Operations and Backup](https://github.com/erathaowl/flatnotes/wiki/Operations-and-Backup).
 
 Published note metadata is stored independently in `.flatnotes-publications.db`, under `FLATNOTES_PATH`. There is no separate database configuration variable. Preserve this SQLite database when backing up or migrating.
 
@@ -77,7 +80,11 @@ At startup, flatnotes prints a QR code and a manual key. Scan the QR code using 
 
 The four categories are **lowercase**, **uppercase**, **numbers** and
 **symbols**. For example, `MIN_CLASSES=3` requires any three different
-categories, without requiring one specific combination.
+categories, without requiring one specific combination. The `0` value
+disables the corresponding complexity check, but the protection password
+field still requires a nonempty value. Policies are enforced by the
+browser during note creation/conversion, rather than by inspecting
+passwords on the server.
 
 Example:
 
@@ -134,9 +141,20 @@ Place the files on the host under `./data/branding/`. Files must exist at startu
 
 ## Sharing settings
 
-Publishing is controlled **per note from the Share dialog**; there is no global environment variable to enable publication. The default is private and public access is read-only when first enabled.
+The global switch `FLATNOTES_SHARING_ENABLED` controls whether
+publication is available (default `true`). Per-note **Share**
+settings choose `private`, `read` or `edit`; public links are
+read-only when first enabled. Disabling sharing suspends the
+public ordinary-note and encrypted-note API endpoints with HTTP 404
+and hides the Share controls. Existing SQLite publication records
+are preserved for later re-enabling.
 
 Publication settings, link identifiers, and attachment permissions persist in `/data/.flatnotes-publications.db`. See [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes).
+
+All environment variables are read at startup. Update your
+Compose or service configuration and restart the process to apply
+changes. Feature flags cannot be used to recover a forgotten
+encryption password.
 
 ## More information
 
