@@ -78,6 +78,8 @@
           :isNew="isNew"
           :canModify="canEdit"
           :consumed="consumedView"
+          :showExport="!publicSlug"
+          :showDelete="!publicSlug"
           :showShare="!publicSlug && globalStore.config.sharingEnabled"
           :showExpiration="!publicSlug && globalStore.config.expirationEnabled && !consumedView"
           :shareActive="shareActive"

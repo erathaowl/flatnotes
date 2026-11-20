@@ -26,13 +26,14 @@
       @click="$emit('protect')"
     />
     <CustomButton
+      v-if="showExport"
       :iconPath="mdilDownload"
       label="Export Markdown"
       :disabled="busy"
       @click="$emit('export')"
     />
     <CustomButton
-      v-if="canModify && !consumed"
+      v-if="showDelete && canModify && !consumed"
       :iconPath="mdilDelete"
       label="Delete"
       style="danger"
@@ -88,6 +89,8 @@ defineProps({
   showShare: { type: Boolean, default: false },
   showExpiration: { type: Boolean, default: false },
   showProtect: { type: Boolean, default: false },
+  showExport: { type: Boolean, default: true },
+  showDelete: { type: Boolean, default: true },
   shareActive: { type: Boolean, default: false },
   expirationActive: { type: Boolean, default: false },
   busy: { type: Boolean, default: false },
