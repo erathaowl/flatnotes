@@ -1,2 +1,2 @@
-v6.3.0
-# Release documentation audit and unified note editing refinements.
+v6.4.0
+# Publish share-scoped expiration, optional auto-delete, and migration from 6.3.0.
