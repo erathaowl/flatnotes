@@ -159,6 +159,19 @@ class PublicationExpirationTests(unittest.TestCase):
                    ('plain','PublishedLegacy','2h','time',?, ?, NULL,'active',NULL,NULL)""",
                 (int(time.time()), deadline),
             )
+        (self.root / "PrivateLegacy.md").write_text("must survive")
+        (self.root / "AlreadyConsumed.md").write_text("delete old terminal")
+        with self.publications.connection(write=True) as db:
+            db.execute(
+                """INSERT INTO note_expirations VALUES
+                   ('plain','AlreadyConsumed','once','once',?,NULL,?,
+                    'consumed',NULL,NULL)""",
+                (int(time.time()), int(time.time())),
+            )
+            db.execute(
+                "UPDATE note_expirations SET expires_at=? WHERE note_id='PrivateLegacy'",
+                (int(time.time()) - 7200,),
+            )
         self.publish("PublishedLegacy")
         upgraded = ExpirationStore(self.publications)
         published = self.publications.get_by_title("PublishedLegacy")
@@ -173,6 +186,31 @@ class PublicationExpirationTests(unittest.TestCase):
                 "SELECT 1 FROM sqlite_master WHERE name='note_expirations'"
             ).fetchone())
         ExpirationStore(self.publications)  # Repeated startup is idempotent.
+        self.cleanup()
+        self.assertEqual((self.root / "PrivateLegacy.md").read_text(), "must survive")
+        self.assertFalse((self.root / "AlreadyConsumed.md").exists())
+        self.assertEqual(
+            self.publications.get_by_title("PublishedLegacy")["expiration"], "2h"
+        )
+
+    def test_legacy_schema_without_purged_at(self):
+        with self.publications.connection(write=True) as db:
+            db.execute(
+                """CREATE TABLE note_expirations (
+                    note_type TEXT, note_id TEXT, policy TEXT, mode TEXT,
+                    created_at INTEGER, expires_at INTEGER, consumed_at INTEGER,
+                    status TEXT, view_verifier TEXT
+                )"""
+            )
+            db.execute(
+                """INSERT INTO note_expirations VALUES
+                   ('plain','LegacyPrivate','1h','time',?,NULL,NULL,'active',NULL)""",
+                (int(time.time()),),
+            )
+        (self.root / "LegacyPrivate.md").write_text("keep original")
+        ExpirationStore(self.publications)
+        self.cleanup()
+        self.assertEqual((self.root / "LegacyPrivate.md").read_text(), "keep original")
 
     def cleanup(self):
         from flatnotes.notes.models import Note
