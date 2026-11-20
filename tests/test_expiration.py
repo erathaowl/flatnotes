@@ -178,9 +178,9 @@ class PublicationExpirationTests(unittest.TestCase):
         self.assertEqual(published["expiration"], "2h")
         self.assertEqual(published["expires_at"], deadline)
         self.assertTrue(published["auto_delete_note"])
-        self.assertFalse(
+        self.assertTrue(
             (self.root / "PrivateLegacy.md").exists()
-        )  # The test did not create a file; private expiry was discarded.
+        )  # Active private expiry is discarded while the file is preserved.
         with self.publications.connection() as db:
             self.assertFalse(db.execute(
                 "SELECT 1 FROM sqlite_master WHERE name='note_expirations'"
