@@ -241,6 +241,7 @@ class PublicApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         policy = response.headers["content-security-policy"]
         self.assertIn("wasm-unsafe-eval", policy)
+        self.assertNotIn("'unsafe-inline'", policy.split("script-src ", 1)[1].split(";", 1)[0])
         self.assertIn("img-src 'self' data: blob:", policy)
 
     def test_private_note_is_not_public(self):

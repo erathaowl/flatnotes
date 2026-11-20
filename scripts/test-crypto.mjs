@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Worker } from "node:worker_threads";
+import { copyAttachments } from "../client/cryptoSession.js";
 
 function session() {
   const worker = new Worker(new URL("./crypto-worker-test-bootstrap.mjs", import.meta.url));
@@ -49,6 +50,13 @@ const decrypted = await reader.call("unlock", { noteId: id, password, ciphertext
 assert.deepEqual(decrypted, { title, content, attachments: [] });
 
 const attached = [{ id: "ab12", name: "report.pdf", dataUrl: "data:application/pdf;base64,SGVsbG8=" }];
+
+// Vue's reactive arrays and their nested objects are non-cloneable Proxies.
+const reactiveAttachments = new Proxy(attached.map((file) => new Proxy(file, {})), {});
+assert.throws(() => structuredClone(reactiveAttachments), /clone/i);
+assert.deepEqual(copyAttachments(reactiveAttachments), attached);
+assert.deepEqual(structuredClone(copyAttachments(reactiveAttachments)), attached);
+
 const updated = await reader.call("save", { title, content: "Updated private text", attachments: attached });
 assert.ok(!updated.includes("report.pdf"));
 assert.ok(!updated.includes("SGVsbG8="));

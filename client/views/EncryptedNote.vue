@@ -45,15 +45,22 @@
     </div>
 
     <template v-else>
-      <header class="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <input
-          v-if="editing && !publicSlug"
-          v-model="title"
-          class="min-w-0 flex-1 bg-theme-background text-2xl outline-none"
-          aria-label="Note title"
-        />
-        <h1 v-else class="break-words text-2xl">{{ title }}</h1>
-        <div class="flex flex-wrap gap-2 print:hidden">
+      <header class="mb-3 flex flex-col gap-3">
+        <div class="min-w-0 w-full">
+          <input
+            v-if="editing && !publicSlug"
+            ref="titleInput"
+            v-model="title"
+            placeholder="Title"
+            :aria-invalid="titleError"
+            aria-label="Note title"
+            class="w-full min-w-0 bg-theme-background text-2xl outline-none placeholder:italic placeholder:text-theme-text-very-muted sm:text-3xl"
+            @input="titleError = false"
+          />
+          <h1 v-else class="break-words text-2xl sm:text-3xl">{{ title }}</h1>
+          <p v-if="titleError" class="mt-1 text-sm text-theme-danger" role="alert">Title is required.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-1 print:hidden sm:gap-2">
           <CustomButton label="Lock" @click="lock" />
           <CustomButton
             v-if="!publicSlug && globalStore.config.sharingEnabled"
@@ -124,7 +131,7 @@ import CustomButton from "../components/CustomButton.vue";
 import ShareModal from "../components/ShareModal.vue";
 import ToastEditor from "../components/toastui/ToastEditor.vue";
 import ToastViewer from "../components/toastui/ToastViewer.vue";
-import { EncryptedSession, newEncryptedId } from "../cryptoSession.js";
+import { EncryptedSession, copyAttachments, newEncryptedId } from "../cryptoSession.js";
 import { useGlobalStore } from "../globalStore.js";
 
 const props = defineProps({ id: String, publicSlug: String });
@@ -146,6 +153,8 @@ const showSharing = ref(false);
 const message = ref("");
 const loadError = ref("");
 const editor = ref(null);
+const titleInput = ref(null);
+const titleError = ref(false);
 const fileInput = ref(null);
 const attachments = ref([]);
 let savedAttachments = [];
@@ -159,6 +168,10 @@ const canEdit = computed(() =>
 );
 
 async function load() {
+  // Retain the unlocked session after replacing /e/new with the saved note ID.
+  if (unlocked.value && activeId.value && props.id === activeId.value && !props.publicSlug) {
+    return;
+  }
   lock();
   loading.value = true;
   loadError.value = "";
@@ -194,7 +207,7 @@ async function unlock() {
     title.value = note.title;
     content.value = note.content;
     attachments.value = note.attachments || [];
-    savedAttachments = structuredClone(attachments.value);
+    savedAttachments = copyAttachments(attachments.value);
     unlocked.value = true;
     password.value = "";
   } catch {
@@ -242,11 +255,14 @@ async function initializeNew() {
 async function save() {
   if (busy.value || !cryptoSession) return;
   if (!title.value.trim()) {
-    message.value = "A title is required.";
+    titleError.value = true;
+    await nextTick();
+    titleInput.value?.focus();
     return;
   }
   busy.value = true;
   message.value = "";
+  titleError.value = false;
   try {
     const markdown = editor.value.getMarkdown();
     const encryptedData = await cryptoSession.save(title.value.trim(), markdown, attachments.value);
@@ -254,7 +270,7 @@ async function save() {
       activeId.value, encryptedData, revision.value || "*", props.publicSlug,
     );
     content.value = markdown;
-    savedAttachments = structuredClone(attachments.value);
+    savedAttachments = copyAttachments(attachments.value);
     ciphertext.value = encryptedData;
     revision.value = result.revision;
     editing.value = false;
@@ -262,9 +278,16 @@ async function save() {
       await router.replace({ name: "encryptedNote", params: { id: activeId.value } });
     }
   } catch (error) {
-    message.value = error.response?.status === 409
+    const status = error.response?.status;
+    message.value = status === 409
       ? "The note changed elsewhere. Copy your edits before reloading."
-      : "Unable to save the encrypted note.";
+      : status === 413
+        ? "The encrypted note exceeds the server size limit."
+        : status === 403
+          ? "Saving encrypted notes is disabled or access was denied."
+          : "Unable to save the encrypted note.";
+    // Log only an error category: encrypted content and passwords remain private.
+    console.error("Encrypted note save failed:", error.name, status || "browser");
   } finally {
     busy.value = false;
   }
@@ -283,10 +306,11 @@ function lock() {
   editing.value = false;
   showSharing.value = false;
   message.value = "";
+  titleError.value = false;
 }
 
 function cancelEdit() {
-  attachments.value = structuredClone(savedAttachments);
+  attachments.value = copyAttachments(savedAttachments);
   editing.value = false;
   message.value = "";
 }

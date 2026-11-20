@@ -6,6 +6,15 @@ export function newEncryptedId() {
     .join("");
 }
 
+// Vue refs contain reactive Proxies, which cannot cross a Worker boundary.
+export function copyAttachments(attachments) {
+  return attachments.map((attachment) => ({
+    id: attachment.id,
+    name: attachment.name,
+    dataUrl: attachment.dataUrl,
+  }));
+}
+
 export class EncryptedSession {
   constructor() {
     this.worker = new Worker(new URL("./crypto.worker.js", import.meta.url), {
@@ -40,7 +49,7 @@ export class EncryptedSession {
   }
 
   save(title, content, attachments = []) {
-    return this.call("save", { title, content, attachments });
+    return this.call("save", { title, content, attachments: copyAttachments(attachments) });
   }
 
   close() {
