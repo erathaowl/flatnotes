@@ -119,6 +119,8 @@ async function unlock(payload) {
   if (documentKey) throw new Error("An encrypted note is already unlocked");
   const parsed = JSON.parse(payload.ciphertext);
   validateHeader(parsed, payload.noteId);
+  // Bind the independent view proof to the note before key derivation.
+  activeNoteId = payload.noteId;
   const wrappingKey = await derive(payload.password, decode64(parsed.kdf.salt), parsed.kdf);
   const rawDataKey = await crypto.subtle.decrypt(
     {
