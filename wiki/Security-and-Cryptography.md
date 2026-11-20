@@ -1,7 +1,7 @@
 # Security Model and Cryptography
 
 This document describes the implemented security boundary for protected
-notes in flatnotes 6.1.0. It is a technical design reference, not a formal
+notes in flatnotes 6.2.0. It is a technical design reference, not a formal
 third-party security audit.
 
 ## Trust boundary
@@ -111,6 +111,27 @@ Publication metadata is **not** encrypted: the server knows the
 public slug, opaque note ID and read/edit permission. A random slug is
 recommended; custom slugs can be guessed. Using the encrypted title as
 a public slug is deliberately unsupported.
+
+## Expiration and single-view security
+
+The optional expiration service stores deadlines, terminal
+status and a verifier for single-view encrypted notes in SQLite.
+The verifier is the SHA-256 digest of a browser-generated
+HMAC-SHA256 proof derived with explicit domain separation
+from the password-based key material.
+
+The server receives only this separate proof when the browser
+successfully decrypts a single-view encrypted note. It
+atomically accepts the first claim and rejects subsequent
+claims. It does not receive the password, raw encryption keys
+or note plaintext.
+
+The browser downloads ciphertext before the claim. An observer
+or recipient can retain those bytes and decrypt them offline
+if they know the password. Expiration only revokes future
+server-mediated access, not copies already obtained.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
 
 ## Security boundaries and limitations
 

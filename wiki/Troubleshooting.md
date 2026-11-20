@@ -1,18 +1,18 @@
 # Troubleshooting
 
-Use this checklist for flatnotes 6.1.0. Avoid sharing passwords,
+Use this checklist for flatnotes 6.2.0. Avoid sharing passwords,
 authenticated tokens, or decrypted note contents when reporting bugs.
 
 ## Refreshing `/encrypted` shows JSON 404
 
 The application uses Vue history-mode routes and needs FastAPI (or
 your reverse proxy) to serve the frontend shell for direct navigation.
-The backend in 6.1.0 registers `/encrypted` as a page URL.
+The backend in 6.2.0 registers `/encrypted` as a page URL.
 
 If you still receive `{"detail":"Not Found"}`, verify that your
 container really runs the updated image and that the reverse proxy
 is forwarding the route to flatnotes, rather than to another app.
-`:develop` and `:v6.1.0` are separate image tags.
+`:develop` and `:v6.2.0` are separate image tags.
 
 ## Encryption does not work from a phone
 
@@ -87,6 +87,27 @@ encrypted note does not revalidate the password against new rules.
 The minimum character-category value is 0–4, and the minimum
 length is 0–1024. A value of 0 disables the corresponding policy
 check, though the user still must enter a nonempty password.
+
+## Expiring notes and HTTP 410
+
+HTTP 410 Gone indicates that a timed note expired or a
+single-view note was already consumed. The server will reject
+all further content requests even if the file has not yet
+been removed by the periodic cleanup.
+
+The first opening of an ordinary one-view note, including
+by its owner, consumes the view. For protected one-view notes,
+a correct password is needed to generate the browser proof
+before the server consumes it. An incorrect password does not
+consume the view.
+
+If a note no longer appears in global search, check
+`/expiring`: ordinary single-view notes are intentionally
+excluded from Whoosh. If policies are no longer editable,
+check `FLATNOTES_EXPIRATION_ENABLED`; disabling this
+switch does not cancel previously configured expirations.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
 
 ## TOTP login fails
 

@@ -108,6 +108,26 @@ and does not index encrypted notes.
 
 See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes).
 
+## Note expiration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `FLATNOTES_EXPIRATION_ENABLED` | `false` | Master switch for configuring expiration policies |
+| `FLATNOTES_EXPIRATION_DEFAULT` | `none` | Default for newly saved notes: `none`, `once`, `Nh` or `Nd` |
+
+Examples include `12h`, `48h`, `7d` and `30d`.
+Durations must be positive and cannot exceed 3650 days. Hours
+are clock hours, days are 24-hour periods. Invalid settings
+stop the server at startup.
+
+The feature is per note and supports ordinary as well as encrypted
+notes. Existing expiration rules remain enforced if the master
+switch is disabled. Setting a new default does not modify
+existing notes.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes) for single-view
+semantics and cleanup behavior.
+
 ## Quick access on the home page
 
 | Variable | Default | Description |

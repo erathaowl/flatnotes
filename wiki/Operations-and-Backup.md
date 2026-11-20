@@ -2,14 +2,14 @@
 
 ## Deployment options
 
-flatnotes 6.1.0 ships with three deployment artifacts:
+flatnotes 6.2.0 ships with three deployment artifacts:
 
-- GHCR images `ghcr.io/erathaowl/flatnotes:v6.1.0` and `:latest`;
+- GHCR images `ghcr.io/erathaowl/flatnotes:v6.2.0` and `:latest`;
   `:develop` tracks the development branch.
 - An installable Python 3.13 wheel,
-  `flatnotes-6.1.0-py3-none-any.whl`, including the FastAPI
+  `flatnotes-6.2.0-py3-none-any.whl`, including the FastAPI
   backend, compiled Vue frontend and `flatnotes` CLI.
-- `flatnotes-6.1.0.tar.gz`, an application archive with Python
+- `flatnotes-6.2.0.tar.gz`, an application archive with Python
   backend sources and compiled frontend files.
 
 A production deployment needs a writable data directory, application
@@ -58,7 +58,7 @@ docker compose up -d flatnotes
 docker compose logs --tail=100 flatnotes
 ```
 
-Use a pinned tag `v6.1.0` for reproducible deployments. The
+Use a pinned tag `v6.2.0` for reproducible deployments. The
 `:develop` tag is for testing and changes with each successful
 development build.
 
@@ -84,7 +84,7 @@ restart the service:
 ```bash
 python3.13 -m venv .venv
 . .venv/bin/activate
-pip install --upgrade ./flatnotes-6.1.0-py3-none-any.whl
+pip install --upgrade ./flatnotes-6.2.0-py3-none-any.whl
 flatnotes --host 127.0.0.1 --port 8080
 ```
 
@@ -124,6 +124,29 @@ updates the search index. Conversion is not secure erasure: historic
 backups and storage blocks may still contain plaintext.
 
 Test on a disposable note before migrating confidential material.
+
+## Expiration cleanup and recovery
+
+When `FLATNOTES_EXPIRATION_ENABLED=true`, each note can
+expire after hours, days or one authorized viewing.
+SQLite stores the rules in `note_expirations`, inside
+`.flatnotes-publications.db`. The `note_view_sessions`
+table retains short-lived attachment tokens for consumed
+ordinary notes.
+
+The server checks policies synchronously on API access.
+At startup and about every 60 seconds, a cleanup pass
+deletes terminal note files, revokes publications, updates
+the search index and conservatively removes orphaned
+ordinary attachments. Terminal metadata is retained to
+distinguish consumed or expired notes.
+
+For safe backups, stop the service or take a consistent
+SQLite snapshot. Expiration is not secure erasure of old
+backups, snapshots, previously downloaded content or
+filesystem blocks. Apply backup retention independently.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
 
 ## Monitoring and troubleshooting
 

@@ -3,7 +3,7 @@
 flatnotes exposes OpenAPI documentation at `/docs` and the schema at
 `/openapi.json`. Prefixes follow `FLATNOTES_PATH_PREFIX` when configured.
 This page explains the note, publishing and encrypted-byte routes used by
-the 6.1.0 frontend. See the generated schema for exact response models.
+the 6.2.0 frontend. See the generated schema for exact response models.
 
 ## Authentication
 
@@ -103,6 +103,35 @@ No endpoint requests or accepts the note's encryption password.
 
 Encrypted publications support **random** and **custom** slugs only.
 The `title` slug mode is rejected to avoid disclosing the title.
+
+## Expiration API
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| GET | `/api/expiring-notes` | List active notes with expiration metadata |
+| GET/PUT | `/api/notes/{title}/expiration` | Read or configure an ordinary note's policy |
+| GET/PUT | `/api/encrypted-notes/{id}/expiration` | Read or configure a protected note's policy |
+| POST | `/api/encrypted-notes/{id}/view` | Claim an encrypted single view after successful browser unlock |
+| POST | `/api/public/encrypted-notes/{slug}/view` | Claim a published encrypted single view |
+
+Set an expiration policy with JSON `{"policy":"7d"}`,
+`{"policy":"once"}` or `{"policy":"none"}`.
+For protected single-view notes, the request also carries the
+browser-generated `verifier` (64 hex characters, SHA-256 digest
+of the unlock proof).
+
+Creating an ordinary note accepts the optional `expiration`
+field in its POST body. Creating a protected note accepts
+`X-Expiration` and, when `once`, `X-View-Verifier`.
+The claim endpoint accepts `{"proof":"<64-hex>"}` after local
+decryption, with no password or plaintext in its payload.
+
+The first ordinary one-view content request also returns
+`viewToken`, permitting published attachments to load
+briefly using `?view_token=...`. HTTP 410 indicates that
+a note expired or its single view was consumed.
+
+Full behavior: [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
 
 ## Feature flags and errors
 

@@ -34,17 +34,17 @@ Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, per
 
 ## Installazione tramite wheel Python
 
-Le release includono anche il file `flatnotes-6.1.0-py3-none-any.whl`,
+Le release includono anche il file `flatnotes-6.2.0-py3-none-any.whl`,
 contenente **backend FastAPI, frontend Vue già compilato e comando `flatnotes`**.
 Sul server è sufficiente **Python 3.13**, senza bisogno di Node.js o Docker.
 
-Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.1.0),
+Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.2.0),
 poi esegui:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.1.0-py3-none-any.whl
+pip install flatnotes-6.2.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -72,7 +72,7 @@ Crea un file `compose.yaml`:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.1.0
+    image: ghcr.io/erathaowl/flatnotes:v6.2.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -98,7 +98,7 @@ Prepara un file `.env` contenente `FLATNOTES_PASSWORD` e `FLATNOTES_SECRET_KEY`,
 docker compose up -d
 ```
 
-Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.1.0`; `:latest` indica l'ultima release pubblicata, mentre `:develop` è destinato ai test delle build di sviluppo.
+Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.2.0`; `:latest` indica l'ultima release pubblicata, mentre `:develop` è destinato ai test delle build di sviluppo.
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
@@ -168,6 +168,41 @@ Il browser esegue codice JavaScript fornito dal server: un server
 compromesso potrebbe distribuire codice client dannoso.
 
 Approfondimenti: [Encrypted Notes](wiki/Encrypted-Notes.md).
+
+## Scadenza opzionale delle note
+
+Imposta `FLATNOTES_EXPIRATION_ENABLED=true` per attivare la scadenza
+delle note normali e cifrate. Con `FLATNOTES_EXPIRATION_DEFAULT`
+(default `none`) scegli il valore predefinito per le nuove note.
+Ogni nota può avere una regola diversa.
+
+```yaml
+environment:
+  FLATNOTES_EXPIRATION_ENABLED: "true"
+  FLATNOTES_EXPIRATION_DEFAULT: "7d"
+```
+
+Le modalità disponibili sono **Nessuna**, **Dopo N ore**,
+**Dopo N giorni** e **Singola visualizzazione** (`once`).
+Gli intervalli si calcolano dal primo salvataggio oppure dall'ultima
+modifica della regola, mentre cambiare il contenuto non rinnova
+automaticamente la scadenza.
+
+La pagina `/expiring`, accessibile dal menu, elenca le note con
+scadenza attiva. Una nota a singola visualizzazione viene consumata
+anche se è il proprietario ad aprirla. Le note normali a visualizzazione
+singola non appaiono nella ricerca completa.
+
+Per una nota cifrata il browser decifra con la password e invia al server
+soltanto una prova crittografica distinta dalle chiavi. Il server
+autorizza atomicamente un'unica visualizzazione. Il contenuto cifrato
+già scaricato potrebbe comunque essere conservato e decifrato offline.
+
+Disabilitare il master switch impedisce nuove configurazioni ma
+**non sospende le scadenze già esistenti**. La cancellazione dei file
+attivi non elimina automaticamente backup, snapshot o copie scaricate.
+
+Guida: [Expiring Notes](wiki/Expiring-Notes.md).
 
 ## Pubblicazione delle note
 

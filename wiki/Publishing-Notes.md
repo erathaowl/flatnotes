@@ -39,6 +39,21 @@ re-enabling. This flag is enforced by the backend.
 See [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes)
 and [Security and Cryptography](https://github.com/erathaowl/flatnotes/wiki/Security-and-Cryptography).
 
+## Expiration of published notes
+
+Note expiration applies to the source note as well as the
+public link. An expired or consumed publication returns HTTP 410
+through content APIs, and cleanup later revokes its publication
+metadata.
+
+For a public ordinary single-view note, the first content
+request claims the view. A temporary attachment token permits
+allowlisted files to load for three minutes after that request.
+For a public encrypted single-view note, an unlock proof is
+required before the view is consumed.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+
 ## Public permissions
 
 | Operation | Private note | Published read-only | Published editable |

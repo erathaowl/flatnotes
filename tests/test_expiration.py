@@ -71,6 +71,56 @@ class ExpirationTests(unittest.TestCase):
         with self.assertRaises(ExpirationError):
             self.store.consume("encrypted", "1" * 32, proof=proof.hex())
 
+    def test_cleanup_removes_orphans_and_preserves_shared_attachments(self):
+        from flatnotes.notes.models import Note
+
+        root = Path(self.directory.name)
+        attachments = root / "attachments"
+        attachments.mkdir()
+        orphan = attachments / "orphan.png"
+        shared = attachments / "shared.png"
+        orphan.write_bytes(b"orphan")
+        shared.write_bytes(b"shared")
+        (root / "Expired.md").write_text(
+            "![orphan](attachments/orphan.png)\n![shared](attachments/shared.png)"
+        )
+        (root / "Other.md").write_text("![shared](attachments/shared.png)")
+        self.store.set("plain", "Expired", "1h")
+        with self.publications.connection(write=True) as db:
+            db.execute(
+                "UPDATE note_expirations SET expires_at=? WHERE note_id='Expired'",
+                (int(time.time()) - 1,),
+            )
+
+        class OrdinaryStorage:
+            storage_path = str(root)
+
+            def get(self, title):
+                path = root / (title + ".md")
+                if not path.exists():
+                    raise FileNotFoundError(title)
+                return Note(title=title, content=path.read_text(), last_modified=0)
+
+            def delete(self, title):
+                (root / (title + ".md")).unlink()
+
+            def _sync_index_with_retry(self):
+                pass
+
+        class EncryptedStorage:
+            def delete(self, note_id):
+                (root / (note_id + ".md.enc")).unlink()
+
+        class EncryptedPublications:
+            def delete(self, note_id, db):
+                pass
+
+        self.store.cleanup(OrdinaryStorage(), EncryptedStorage(), EncryptedPublications())
+        self.assertFalse((root / "Expired.md").exists())
+        self.assertFalse(orphan.exists())
+        self.assertTrue(shared.exists())
+        self.assertEqual(self.store.get("plain", "Expired")["status"], "expired")
+
     def test_transfer_and_rename(self):
         self.store.set("plain", "draft", "4h")
         with self.publications.connection(write=True) as db:

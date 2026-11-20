@@ -70,6 +70,26 @@ The password cannot be recovered. Automatic **Remove protection** is not
 implemented because writing a plaintext `.md` file on the server would
 contradict the ciphertext-only requirement.
 
+## Expiration controls
+
+When `FLATNOTES_EXPIRATION_ENABLED=true`, new ordinary notes
+and new encrypted notes offer an **Expiration** selector. On
+existing unlocked notes, the **Expiration** toolbar action
+opens the setting dialog. Available choices are never,
+a positive number of hours, a positive number of days or
+single view.
+
+The main Menu includes **Expiring Notes**, opening `/expiring`.
+This page lists active timed notes and single-view notes; encrypted
+notes remain identified by their opaque IDs.
+
+A timed note expires without resetting its timer on content edits.
+A single-view note is consumed by the first content opening,
+including the owner. Plaintext single-view notes are intentionally
+excluded from full-text search.
+
+See [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+
 ## Search, tags and links
 
 Ordinary notes are indexed by Whoosh and can be found by title, content,

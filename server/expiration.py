@@ -9,7 +9,8 @@ import re
 import secrets
 import time
 
-from flatnotes.publications import PublicationStore
+from flatnotes.publications import PublicationStore, referenced_attachments
+from pathlib import Path
 
 DURATION_PATTERN = re.compile(r"^([1-9][0-9]{0,5})([hd])$")
 VERIFIER_PATTERN = re.compile(r"^[a-f0-9]{64}$")
@@ -51,6 +52,7 @@ class ExpirationStore:
                     status TEXT NOT NULL DEFAULT 'active'
                         CHECK(status IN ('active', 'consumed', 'expired')),
                     view_verifier TEXT,
+                    purged_at INTEGER,
                     PRIMARY KEY (note_type, note_id)
                 );
                 CREATE INDEX IF NOT EXISTS expiration_cleanup_idx
@@ -62,6 +64,13 @@ class ExpirationStore:
                     expires_at INTEGER NOT NULL
                 );"""
             )
+
+        with publications.connection(write=True) as db:
+            columns = {
+                row["name"] for row in db.execute("PRAGMA table_info(note_expirations)")
+            }
+            if "purged_at" not in columns:
+                db.execute("ALTER TABLE note_expirations ADD COLUMN purged_at INTEGER")
 
     def get(self, kind, note_id, db=None):
         if db is None:
@@ -123,7 +132,7 @@ class ExpirationStore:
                policy=excluded.policy, mode=excluded.mode,
                created_at=excluded.created_at, expires_at=excluded.expires_at,
                view_verifier=excluded.view_verifier,
-               consumed_at=NULL, status='active'""",
+               consumed_at=NULL, purged_at=NULL, status='active'""",
             (kind, note_id, policy, mode, now, expires_at, verifier),
         )
         return self.get(kind, note_id, db)
@@ -236,13 +245,35 @@ class ExpirationStore:
             (r["note_type"], r["note_id"])
             for r in db.execute(
                 """SELECT note_type, note_id FROM note_expirations e
-                   WHERE status IN ('consumed', 'expired')
+                   WHERE status IN ('consumed', 'expired') AND purged_at IS NULL
                    AND NOT EXISTS (
                      SELECT 1 FROM note_view_sessions v
                      WHERE v.note_type=e.note_type AND v.note_id=e.note_id
                    )"""
             )
         ]
+
+    @staticmethod
+    def delete_orphaned_attachments(ordinary, candidate_names):
+        """Keep shared and uncertain attachments; remove only verified orphans."""
+        if not candidate_names:
+            return
+        directory = Path(ordinary.storage_path)
+        referenced = set()
+        try:
+            for path in directory.glob("*.md"):
+                referenced.update(referenced_attachments(path.read_text(encoding="utf-8")))
+        except (OSError, UnicodeError):
+            # A failed scan must never cause accidental file deletion.
+            return
+        attachment_dir = directory / "attachments"
+        for name in candidate_names - referenced:
+            path = attachment_dir / name
+            if path.parent == attachment_dir:
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def cleanup(self, ordinary, encrypted, encrypted_publications):
         """Delete terminal files and publications; retain tombstones for HTTP 410."""
@@ -252,10 +283,15 @@ class ExpirationStore:
                 try:
                     if kind == "plain":
                         try:
+                            candidate_names = referenced_attachments(ordinary.get(note_id).content or "")
+                        except (FileNotFoundError, ValueError, UnicodeError):
+                            candidate_names = set()
+                        try:
                             ordinary.delete(note_id)
                         except FileNotFoundError:
                             pass
                         self.publications.remove(note_id, db)
+                        self.delete_orphaned_attachments(ordinary, candidate_names)
                         needs_reindex = True
                     else:
                         try:
@@ -263,6 +299,10 @@ class ExpirationStore:
                         except FileNotFoundError:
                             pass
                         encrypted_publications.delete(note_id, db)
+                    db.execute(
+                        "UPDATE note_expirations SET purged_at=? WHERE note_type=? AND note_id=?",
+                        (int(time.time()), kind, note_id),
+                    )
                 except OSError:
                     # Keep terminal state and retry deletion at the next pass.
                     continue

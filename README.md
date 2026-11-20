@@ -41,13 +41,13 @@ Release assets include a standalone Python wheel containing the FastAPI backend,
 the complete compiled Vue frontend, and the `flatnotes` command-line launcher.
 The target machine needs **Python 3.13**, but **does not need Node.js**.
 
-Download `flatnotes-6.1.0-py3-none-any.whl` from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.1.0), then run:
+Download `flatnotes-6.2.0-py3-none-any.whl` from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.2.0), then run:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.1.0-py3-none-any.whl
+pip install flatnotes-6.2.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -80,7 +80,7 @@ Create a `compose.yaml` file:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.1.0
+    image: ghcr.io/erathaowl/flatnotes:v6.2.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -106,7 +106,7 @@ Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, usin
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.1.0` release. Use `:latest` for the latest published release or `:develop` only when testing the current development branch.
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.2.0` release. Use `:latest` for the latest published release or `:develop` only when testing the current development branch.
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
@@ -180,6 +180,41 @@ browser's security boundary.
 
 Read the [Encrypted Notes](wiki/Encrypted-Notes.md) guide for the file
 format, threat model, permissions, and backup details.
+
+## Optional expiration for individual notes
+
+Enable note expiration with `FLATNOTES_EXPIRATION_ENABLED=true`. New notes
+inherit `FLATNOTES_EXPIRATION_DEFAULT` (default `none`), and each
+note can override the policy. Available modes are **Never**, **After N
+hours**, **After N days** and **Single view**.
+
+```yaml
+environment:
+  FLATNOTES_EXPIRATION_ENABLED: "true"
+  FLATNOTES_EXPIRATION_DEFAULT: "7d"
+```
+
+Ordinary and protected notes support these policies. Timers start on first
+save or when an existing note's policy is changed. Subsequent edits do not
+extend the deadline. Single-view notes are consumed on the first authorized
+opening, including the owner's own opening.
+
+Open `/expiring` from the Menu to find time-limited and single-view
+notes. Ordinary single-view notes are excluded from full-text search, and
+protected titles remain encrypted.
+
+Encrypted single-view notes require successful browser decryption followed
+by a one-time proof submitted to the server. Passwords, plaintext and
+decryption keys remain in the browser. Already downloaded ciphertext can be
+retained for offline decryption, so single-view enforcement is limited to
+flatnotes access.
+
+Disabling the feature prevents creating or changing expiration policies
+while **preserving enforcement of existing deadlines**. Expired notes and
+their publications are removed during periodic cleanup. Historical backups,
+downloads and filesystem snapshots are not automatically erased.
+
+See [Expiring Notes](wiki/Expiring-Notes.md) for the complete behavior.
 
 ## Publish a note
 

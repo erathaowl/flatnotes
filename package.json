@@ -1,6 +1,6 @@
 {
   "name": "flatnotes",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "type": "module",
   "description": "Self-hosted Markdown notes with optional browser-only encryption and public sharing.",
   "main": "client/index.html",

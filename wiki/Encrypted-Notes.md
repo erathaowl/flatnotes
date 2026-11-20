@@ -49,6 +49,26 @@ Delete icon and confirm. The encrypted file and publication record
 are removed by the account-authorized operation. The encryption
 password is not needed to delete ciphertext.
 
+## Expiration and single-view encrypted notes
+
+Encrypted notes support the same expiration policies as ordinary
+notes when the feature is enabled. The selector appears during
+creation, and unlocked notes can change their policy from the
+**Expiration** action.
+
+For single-view notes, the browser verifies the password and
+decrypts the envelope locally before submitting a separate HMAC
+unlock proof. The server stores only the proof verifier hash,
+atomically consumes the view and grants display. The password
+and plaintext never reach the server.
+
+After consumption, a subsequent view returns HTTP 410.
+A downloaded encrypted file can still be retained and
+decrypted offline with the password; single view is a
+server-enforced access limit.
+
+Full details: [Expiring Notes](https://github.com/erathaowl/flatnotes/wiki/Expiring-Notes).
+
 ## Password requirements
 
 The administrator can configure the minimum password length with
@@ -186,7 +206,7 @@ localStorage or sessionStorage.
 
 - **Password recovery:** not available. Deleting a note without its
   password is possible, but decrypting it is not.
-- **Change password:** not implemented in 6.1.0.
+- **Change password:** not implemented in 6.2.0.
 - **Remove protection:** not implemented; exporting unlocked Markdown
   produces a local plaintext copy instead.
 - **Password policy:** affects newly created protection passwords,
