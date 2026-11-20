@@ -12,6 +12,7 @@ class NoteBase(CustomBaseModel):
 
 
 class NoteCreate(CustomBaseModel):
+    expiration: Optional[str] = None
     title: Annotated[
         str,
         AfterValidator(strip_whitespace),
@@ -24,6 +25,8 @@ class Note(CustomBaseModel):
     title: str
     content: Optional[str] = Field(None)
     last_modified: float
+    expiration: Optional[dict] = None
+    view_token: Optional[str] = None
 
 
 class NoteUpdate(CustomBaseModel):

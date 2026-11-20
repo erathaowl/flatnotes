@@ -48,6 +48,7 @@ class FileSystemNotes(BaseNotes):
     )
 
     def __init__(self):
+        self.is_indexable = lambda title: True
         self.storage_path = get_env("FLATNOTES_PATH", mandatory=True)
         if not os.path.exists(self.storage_path):
             raise NotADirectoryError(
@@ -243,7 +244,7 @@ class FileSystemNotes(BaseNotes):
                 idx_filename = idx_note["filename"]
                 idx_filepath = os.path.join(self.storage_path, idx_filename)
                 # Delete missing
-                if not os.path.exists(idx_filepath):
+                if not os.path.exists(idx_filepath) or not self.is_indexable(self._strip_ext(idx_filename)):
                     writer.delete_by_term("filename", idx_filename)
                     logger.info(f"'{idx_filename}' removed from index")
                 # Update modified
@@ -261,7 +262,7 @@ class FileSystemNotes(BaseNotes):
                     indexed.add(idx_filename)
         # Add new
         for filename in self._list_all_note_filenames():
-            if filename not in indexed:
+            if filename not in indexed and self.is_indexable(self._strip_ext(filename)):
                 self._add_note_to_index(
                     writer, self._get_by_filename(filename)
                 )

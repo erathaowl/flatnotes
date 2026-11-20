@@ -22,6 +22,8 @@ class PublicNote(CustomBaseModel):
     content: str
     permission: Literal["read", "edit"]
     revision: str
+    expiration: Optional[dict] = None
+    view_token: Optional[str] = None
 
 
 class PublicNoteUpdate(CustomBaseModel):

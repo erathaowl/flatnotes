@@ -2,6 +2,8 @@ from typing import List, Literal
 from pathlib import Path
 from html import escape
 import mimetypes
+from threading import Event, Thread
+import time
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, UploadFile, Response, Request, Header
 from fastapi.responses import FileResponse, HTMLResponse
@@ -18,6 +20,8 @@ from flatnotes.notes.base import BaseNotes
 from flatnotes.notes.models import Note, NoteCreate, NoteUpdate, SearchResult
 from flatnotes.publications import PublicationStore, SlugConflictError, content_revision
 from flatnotes.encrypted_storage import EncryptedNoteStore, EncryptedPublicationStore
+from flatnotes.expiration import ExpirationStore, ExpirationError, parse_policy
+from flatnotes.expiration_models import ExpirationSettings, SingleViewProof
 from flatnotes.helpers import is_valid_filename
 from flatnotes.publication_models import PublicationSettings, PublicationInfo, PublicNote, PublicNoteUpdate
 
@@ -28,6 +32,22 @@ attachment_storage: BaseAttachments = global_config.load_attachment_storage()
 publication_store = PublicationStore(note_storage.storage_path)
 encrypted_store = EncryptedNoteStore(note_storage.storage_path)
 encrypted_publications = EncryptedPublicationStore(publication_store)
+expiration_store = ExpirationStore(publication_store)
+note_storage.is_indexable = expiration_store.is_indexable
+note_storage._sync_index_with_retry()
+expiration_store.cleanup(note_storage, encrypted_store, encrypted_publications)
+cleanup_stopped = Event()
+
+
+def cleanup_expired_notes():
+    while not cleanup_stopped.wait(60):
+        try:
+            expiration_store.cleanup(note_storage, encrypted_store, encrypted_publications)
+        except Exception:
+            from flatnotes.logger import logger
+            logger.exception("Expiration cleanup failed; retrying")
+
+
 auth_deps = [Depends(auth.authenticate)] if auth else []
 router = APIRouter()
 app = FastAPI(
@@ -35,6 +55,43 @@ app = FastAPI(
     openapi_url=global_config.path_prefix + "/openapi.json",
 )
 FRONTEND_DIR = Path(__file__).resolve().parent / "web" / "dist"
+
+
+@app.on_event("startup")
+def start_cleanup():
+    cleanup_stopped.clear()
+    Thread(target=cleanup_expired_notes, daemon=True, name="flatnotes-expiration").start()
+
+
+@app.on_event("shutdown")
+def stop_cleanup():
+    cleanup_stopped.set()
+
+
+def ensure_active(kind, note_id, db=None):
+    try:
+        expiration_store.ensure_available(kind, note_id, db)
+    except ExpirationError:
+        raise HTTPException(410, "Note has expired or has already been viewed")
+
+
+def require_expiration_writes():
+    if not global_config.expiration_enabled or global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(403, "Expiration configuration is disabled")
+
+
+def selected_expiration(policy):
+    value = policy if policy is not None else (
+        global_config.expiration_default if global_config.expiration_enabled else "none"
+    )
+    if not global_config.expiration_enabled and value != "none":
+        raise HTTPException(403, "Expiration configuration is disabled")
+    try:
+        parse_policy(value)
+    except ValueError as error:
+        raise HTTPException(422, str(error))
+    return value
+
 
 
 # region UI
@@ -110,9 +167,16 @@ def auth_check() -> str:
     response_model=Note,
 )
 def get_note(title: str):
-    """Get a specific note."""
+    """Claim a single view atomically before returning plaintext."""
     try:
-        return note_storage.get(title)
+        with publication_store.connection(write=True) as db:
+            ensure_active("plain", title, db)
+            note = note_storage.get(title)
+            state = expiration_store.get("plain", title, db)
+            token = expiration_store.consume("plain", title, db=db, allow_session=True)
+            note.expiration = state
+            note.view_token = token
+            return note
     except ValueError:
         raise HTTPException(
             status_code=400, detail=api_messages.invalid_note_title
@@ -130,9 +194,24 @@ if global_config.auth_type != AuthType.READ_ONLY:
         response_model=Note,
     )
     def post_note(note: NoteCreate):
-        """Create a new note."""
+        """Create an ordinary note and its expiration policy."""
+        policy = selected_expiration(note.expiration)
+        created = None
         try:
-            return note_storage.create(note)
+            with publication_store.connection(write=True) as db:
+                created = note_storage.create(note)
+                if policy != "none":
+                    expiration_store.set("plain", note.title, policy, db=db)
+                created.expiration = expiration_store.get("plain", note.title, db)
+            note_storage._sync_index_with_retry()
+            return created
+        except Exception:
+            if created is not None:
+                try:
+                    note_storage.delete(created.title)
+                except OSError:
+                    pass
+            raise
         except ValueError:
             raise HTTPException(
                 status_code=400,
@@ -152,8 +231,12 @@ if global_config.auth_type != AuthType.READ_ONLY:
     def patch_note(title: str, data: NoteUpdate):
         try:
             with publication_store.connection(write=True) as db:
+                ensure_active("plain", title, db)
                 current_publication = publication_store.get_by_title(title, db)
                 updated = note_storage.update(title, data)
+                if updated.title != title:
+                    expiration_store.rename("plain", title, updated.title, db)
+                updated.expiration = expiration_store.get("plain", updated.title, db)
                 if current_publication:
                     if updated.title != title:
                         publication_store.rename(title, updated.title, db)
@@ -185,6 +268,7 @@ if global_config.auth_type != AuthType.READ_ONLY:
             with publication_store.connection(write=True) as db:
                 note_storage.delete(title)
                 publication_store.remove(title, db)
+                expiration_store.remove("plain", title, db)
         except ValueError:
             raise HTTPException(
                 status_code=400,
@@ -206,6 +290,7 @@ def get_publication(title: str):
     if not global_config.sharing_enabled:
         raise HTTPException(404, "Sharing is disabled")
     try:
+        ensure_active("plain", title)
         note_storage.get(title)
     except (ValueError, FileNotFoundError):
         raise HTTPException(404, "Note not found")
@@ -223,6 +308,7 @@ if global_config.auth_type != AuthType.READ_ONLY:
         if not global_config.sharing_enabled:
             raise HTTPException(404, "Sharing is disabled")
         try:
+            ensure_active("plain", title)
             note = note_storage.get(title)
         except (ValueError, FileNotFoundError):
             raise HTTPException(404, "Note not found")
@@ -255,6 +341,7 @@ def public_note_or_404(slug: str):
     if not publication:
         raise HTTPException(404, "Note not found")
     try:
+        ensure_active("plain", publication["note_title"])
         note = note_storage.get(publication["note_title"])
     except (FileNotFoundError, ValueError):
         raise HTTPException(404, "Note not found")
@@ -266,8 +353,21 @@ def read_public_note(slug: str, response: Response):
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Robots-Tag"] = "noindex"
     response.headers["Referrer-Policy"] = "no-referrer"
-    publication, note = public_note_or_404(slug)
+    with publication_store.connection(write=True) as db:
+        publication = publication_store.get_by_slug(slug, db)
+        if not global_config.sharing_enabled or not publication:
+            raise HTTPException(404, "Published note not found")
+        title = publication["note_title"]
+        ensure_active("plain", title, db)
+        try:
+            note = note_storage.get(title)
+        except (FileNotFoundError, ValueError):
+            raise HTTPException(404, "Published note not found")
+        state = expiration_store.get("plain", title, db)
+        view_token = expiration_store.consume("plain", title, db=db, allow_session=True)
     return PublicNote(
+        expiration=state,
+        view_token=view_token,
         title=note.title,
         content=note.content or "",
         permission=publication["permission"],
@@ -286,6 +386,7 @@ def edit_public_note(slug: str, data: PublicNoteUpdate, response: Response):
             raise HTTPException(404, "Note not found")
         if publication["permission"] != "edit":
             raise HTTPException(403, "Public editing is disabled")
+        ensure_active("plain", publication["note_title"], db)
         try:
             note = note_storage.get(publication["note_title"])
         except (ValueError, FileNotFoundError):
@@ -306,8 +407,19 @@ def edit_public_note(slug: str, data: PublicNoteUpdate, response: Response):
 
 
 @router.get("/api/public/notes/{slug}/attachments/{filename}")
-def get_public_attachment(slug: str, filename: str):
-    publication, note = public_note_or_404(slug)
+def get_public_attachment(slug: str, filename: str, view_token: str | None = None):
+    if not global_config.sharing_enabled:
+        raise HTTPException(404, "Sharing is disabled")
+    publication = publication_store.get_by_slug(slug)
+    if not publication:
+        raise HTTPException(404, "Published note not found")
+    title = publication["note_title"]
+    state = expiration_store.get("plain", title)
+    if state["mode"] == "once":
+        if not expiration_store.view_session_valid("plain", title, view_token):
+            raise HTTPException(410, "Single-view attachment session expired")
+    else:
+        ensure_active("plain", title)
     if not publication_store.has_attachment(publication["id"], filename):
         raise HTTPException(404, "Attachment not found")
     try:
@@ -334,6 +446,11 @@ def encrypted_response(note_id: str, ciphertext: bytes, permission: str = ""):
     result.headers["X-Content-Type-Options"] = "nosniff"
     result.headers["X-Revision"] = encrypted_store.revision(note_id)
     result.headers["X-Note-Id"] = note_id
+    state = expiration_store.get("encrypted", note_id)
+    result.headers["X-Expiration-Mode"] = state["mode"]
+    result.headers["X-Expiration-Policy"] = state["policy"]
+    if state["expiresAt"] is not None:
+        result.headers["X-Expires-At"] = str(state["expiresAt"])
     if permission:
         result.headers["X-Edit-Permission"] = permission
     return result
@@ -341,12 +458,18 @@ def encrypted_response(note_id: str, ciphertext: bytes, permission: str = ""):
 
 @router.get("/api/encrypted-notes", dependencies=auth_deps)
 def list_encrypted_notes():
-    return encrypted_store.list()
+    result = []
+    for note in encrypted_store.list():
+        state = expiration_store.get("encrypted", note["id"])
+        if state["status"] == "active":
+            result.append({**note, "expiration": state})
+    return result
 
 
 @router.get("/api/encrypted-notes/{note_id}", dependencies=auth_deps)
 def get_encrypted_note(note_id: str):
     try:
+        ensure_active("encrypted", note_id)
         data = encrypted_store.read(note_id)
         return encrypted_response(note_id, data)
     except (ValueError, FileNotFoundError):
@@ -354,13 +477,29 @@ def get_encrypted_note(note_id: str):
 
 
 @router.put("/api/encrypted-notes/{note_id}", dependencies=auth_deps)
-async def put_encrypted_note(note_id: str, request: Request, x_revision: str = Header(None)):
+async def put_encrypted_note(
+    note_id: str, request: Request, x_revision: str = Header(None),
+    x_expiration: str | None = Header(None),
+    x_view_verifier: str | None = Header(None),
+):
     if not global_config.encryption_enabled or global_config.auth_type == AuthType.READ_ONLY:
         raise HTTPException(403, "Encrypted note writes are disabled")
     data = await request.body()
+    is_new = x_revision == "*"
+    policy = selected_expiration(x_expiration) if is_new else None
+    if is_new and policy == "once" and not x_view_verifier:
+        raise HTTPException(422, "A browser-generated single-view verifier is required")
     try:
-        with publication_store.connection(write=True):
+        with publication_store.connection(write=True) as db:
+            if not is_new:
+                ensure_active("encrypted", note_id, db)
             revision = encrypted_store.save(note_id, data, x_revision)
+            if is_new and policy != "none":
+                try:
+                    expiration_store.set("encrypted", note_id, policy, x_view_verifier, db)
+                except Exception:
+                    encrypted_store.delete(note_id)
+                    raise
         return {"id": note_id, "revision": revision}
     except (FileExistsError, FileNotFoundError):
         raise HTTPException(409, "Encrypted note changed or exists")
@@ -374,6 +513,7 @@ async def protect_existing_note(
     note_id: str,
     request: Request,
     x_source_modified: str = Header(None),
+    x_view_verifier: str | None = Header(None),
 ):
     if not global_config.encryption_enabled or global_config.auth_type == AuthType.READ_ONLY:
         raise HTTPException(403, "Encryption is disabled")
@@ -381,6 +521,10 @@ async def protect_existing_note(
     try:
         is_valid_filename(title)
         with publication_store.connection(write=True) as db:
+            ensure_active("plain", title, db)
+            state = expiration_store.get("plain", title, db)
+            if state["mode"] == "once" and not x_view_verifier:
+                raise HTTPException(422, "Encrypted single-view conversion requires unlock verifier")
             # Check only the source file's existence. Do not read its content.
             from pathlib import Path
             original_path = Path(note_storage._path_from_title(title))
@@ -390,6 +534,7 @@ async def protect_existing_note(
                 raise HTTPException(409, "The source note changed before encryption")
             revision = encrypted_store.save(note_id, data, "*")
             try:
+                expiration_store.transfer("plain", title, "encrypted", note_id, db, x_view_verifier)
                 original_path.unlink()
             except OSError:
                 encrypted_store.delete(note_id)
@@ -411,6 +556,7 @@ def delete_encrypted_note(note_id: str):
         with publication_store.connection(write=True) as db:
             encrypted_store.delete(note_id)
             encrypted_publications.delete(note_id, db)
+            expiration_store.remove("encrypted", note_id, db)
     except (ValueError, FileNotFoundError):
         raise HTTPException(404, "Encrypted note not found")
 
@@ -423,6 +569,7 @@ def get_encrypted_publication(note_id: str):
         encrypted_store.path(note_id).stat()
     except (ValueError, FileNotFoundError):
         raise HTTPException(404, "Encrypted note not found")
+    ensure_active("encrypted", note_id)
     return encrypted_publications.get(note_id=note_id)
 
 
@@ -432,6 +579,7 @@ def set_encrypted_publication(note_id: str, settings: PublicationSettings):
         raise HTTPException(404, "Sharing is disabled")
     try:
         encrypted_store.path(note_id).stat()
+        ensure_active("encrypted", note_id)
     except (ValueError, FileNotFoundError):
         raise HTTPException(404, "Encrypted note not found")
     try:
@@ -457,6 +605,7 @@ def read_public_encrypted_note(slug: str):
     if not publication:
         raise HTTPException(404, "Published note not found")
     try:
+        ensure_active("encrypted", publication["note_id"])
         data = encrypted_store.read(publication["note_id"])
         return encrypted_response(publication["note_id"], data, publication["permission"])
     except (ValueError, FileNotFoundError):
@@ -475,10 +624,108 @@ async def write_public_encrypted_note(slug: str, request: Request, x_revision: s
                 raise HTTPException(404, "Published note not found")
             if publication["permission"] != "edit":
                 raise HTTPException(403, "Public editing is disabled")
+            ensure_active("encrypted", publication["note_id"], db)
             revision = encrypted_store.save(publication["note_id"], data, x_revision)
             return {"revision": revision}
     except (ValueError, FileNotFoundError, FileExistsError):
         raise HTTPException(409, "Note revision mismatch")
+
+
+# endregion
+
+
+
+# region Expiration
+
+@router.get("/api/expiring-notes", dependencies=auth_deps)
+def list_expiring_notes():
+    """List active expiring notes without exposing encrypted content."""
+    return expiration_store.list_active()
+
+
+@router.get("/api/notes/{title}/expiration", dependencies=auth_deps)
+def get_note_expiration(title: str):
+    try:
+        note_storage._path_from_title(title)
+        ensure_active("plain", title)
+        note_storage.get(title)
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Note not found")
+    return expiration_store.get("plain", title)
+
+
+@router.put("/api/notes/{title}/expiration", dependencies=auth_deps)
+def set_note_expiration(title: str, settings: ExpirationSettings):
+    require_expiration_writes()
+    policy = selected_expiration(settings.policy)
+    try:
+        with publication_store.connection(write=True) as db:
+            ensure_active("plain", title, db)
+            note_storage.get(title)
+            result = expiration_store.set("plain", title, policy, db=db)
+        note_storage._sync_index_with_retry()
+        return result
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Note not found")
+
+
+@router.get("/api/encrypted-notes/{note_id}/expiration", dependencies=auth_deps)
+def get_encrypted_expiration(note_id: str):
+    try:
+        ensure_active("encrypted", note_id)
+        encrypted_store.path(note_id).stat()
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Encrypted note not found")
+    return expiration_store.get("encrypted", note_id)
+
+
+@router.put("/api/encrypted-notes/{note_id}/expiration", dependencies=auth_deps)
+def set_encrypted_expiration(note_id: str, settings: ExpirationSettings):
+    require_expiration_writes()
+    policy = selected_expiration(settings.policy)
+    try:
+        with publication_store.connection(write=True) as db:
+            ensure_active("encrypted", note_id, db)
+            encrypted_store.path(note_id).stat()
+            return expiration_store.set("encrypted", note_id, policy, settings.verifier, db)
+    except (ValueError, FileNotFoundError) as error:
+        if isinstance(error, ValueError) and "verifier" in str(error):
+            raise HTTPException(422, str(error))
+        raise HTTPException(404, "Encrypted note not found")
+
+
+@router.post("/api/encrypted-notes/{note_id}/view", dependencies=auth_deps)
+def consume_private_encrypted_view(note_id: str, data: SingleViewProof):
+    try:
+        with publication_store.connection(write=True) as db:
+            ensure_active("encrypted", note_id, db)
+            encrypted_store.path(note_id).stat()
+            expiration_store.consume("encrypted", note_id, proof=data.proof, db=db)
+    except PermissionError:
+        raise HTTPException(403, "Invalid browser unlock proof")
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Encrypted note not found")
+    return {"consumed": True}
+
+
+@router.post("/api/public/encrypted-notes/{slug}/view")
+def consume_public_encrypted_view(slug: str, data: SingleViewProof):
+    if not global_config.sharing_enabled:
+        raise HTTPException(404, "Sharing is disabled")
+    try:
+        with publication_store.connection(write=True) as db:
+            published = encrypted_publications.get(slug=slug, db=db)
+            if not published:
+                raise HTTPException(404, "Published note not found")
+            note_id = published["note_id"]
+            ensure_active("encrypted", note_id, db)
+            encrypted_store.path(note_id).stat()
+            expiration_store.consume("encrypted", note_id, proof=data.proof, db=db)
+    except PermissionError:
+        raise HTTPException(403, "Invalid browser unlock proof")
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(404, "Published note not found")
+    return {"consumed": True}
 
 
 # endregion
@@ -499,7 +746,8 @@ def search(
     """Perform a full text search on all notes."""
     if sort == "lastModified":
         sort = "last_modified"
-    return note_storage.search(term, sort=sort, order=order, limit=limit)
+    result = note_storage.search(term, sort=sort, order=order, limit=limit)
+    return [item for item in result if expiration_store.is_indexable(item.title)]
 
 
 @router.get(
@@ -523,6 +771,8 @@ def get_config():
         auth_type=global_config.auth_type,
         encryption_enabled=global_config.encryption_enabled,
         sharing_enabled=global_config.sharing_enabled,
+        expiration_enabled=global_config.expiration_enabled,
+        expiration_default=global_config.expiration_default,
         encryption_password_min_length=global_config.encryption_password_min_length,
         encryption_password_min_classes=global_config.encryption_password_min_classes,
         quick_access_hide=global_config.quick_access_hide,

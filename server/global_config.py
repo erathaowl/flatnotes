@@ -4,6 +4,7 @@ from pathlib import Path
 
 from flatnotes.helpers import CustomBaseModel, get_env
 from flatnotes.logger import logger
+from flatnotes.expiration import parse_policy
 
 
 class GlobalConfig:
@@ -12,6 +13,13 @@ class GlobalConfig:
         self.auth_type: AuthType = self._load_auth_type()
         self.encryption_enabled = get_env("FLATNOTES_ENCRYPTION_ENABLED", default=False, cast_bool=True)
         self.sharing_enabled = get_env("FLATNOTES_SHARING_ENABLED", default=True, cast_bool=True)
+        self.expiration_enabled = get_env("FLATNOTES_EXPIRATION_ENABLED", default=False, cast_bool=True)
+        self.expiration_default = get_env("FLATNOTES_EXPIRATION_DEFAULT", default="none").strip().lower()
+        try:
+            parse_policy(self.expiration_default)
+        except ValueError as error:
+            logger.error(f"Invalid FLATNOTES_EXPIRATION_DEFAULT: {error}")
+            sys.exit(1)
         self.encryption_password_min_length = get_env(
             "FLATNOTES_ENCRYPTION_PASSWORD_MIN_LENGTH", default=12, cast_int=True
         )
@@ -149,6 +157,8 @@ class GlobalConfigResponseModel(CustomBaseModel):
     auth_type: AuthType
     encryption_enabled: bool = False
     sharing_enabled: bool = True
+    expiration_enabled: bool = False
+    expiration_default: str = "none"
     encryption_password_min_length: int = 12
     encryption_password_min_classes: int = 0
     quick_access_hide: bool
