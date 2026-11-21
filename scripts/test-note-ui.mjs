@@ -9,6 +9,7 @@ const share = source("client/components/ShareModal.vue");
 const selector = source("client/components/ExpirationSelect.vue");
 const protect = source("client/components/ProtectModal.vue");
 const header = source("client/components/NoteHeader.vue");
+const api = source("client/api.js");
 
 for (const [name, view] of [["ordinary", plain], ["encrypted", encrypted]]) {
   assert.match(view, /<NoteHeader\b/, name + " uses shared header");
@@ -25,6 +26,9 @@ assert.match(share, /<ExpirationSelect\b/);
 assert.match(share, /Automatically delete this note when the share expires/);
 assert.match(share, /autoDeleteNote/);
 assert.match(share, /props\.draft/);
+assert.match(share, /<option v-if="!encryptedId" value="edit">/);
+assert.match(encrypted, /const canEdit = computed\(\(\) =>\s*!props\.publicSlug &&/);
+assert.match(api, /api\.put\("api\/encrypted-notes\/"/);
 assert.match(selector, /first public viewing/i);
 assert.match(encrypted, /props\.publicSlug && expiration\.value\.mode === "once"/);
 assert.match(encrypted, /settings\.viewVerifier = await cryptoSession\.viewVerifier\(\)/);
