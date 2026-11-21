@@ -11,7 +11,7 @@
     >
       <option value="private">Private (default)</option>
       <option value="read">Public: read-only</option>
-      <option value="edit">Public: anyone with the link can edit</option>
+      <option v-if="!encryptedId" value="edit">Public: anyone with the link can edit</option>
     </select>
 
     <template v-if="access !== 'private'">
