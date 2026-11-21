@@ -2,17 +2,23 @@ name: Build
 
 on:
   push:
-    branches: [master]
+    branches: ['**']
   pull_request:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      custom_tag:
+        description: 'Optional Docker image tag (lowercase, development retention: 7 days)'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -26,17 +32,11 @@ jobs:
           npm ci
           npm run build
 
-      - name: Test browser cryptography
-        run: node scripts/test-crypto.mjs
+      - name: Test frontend, browser cryptography and docs
+        run: npm test
 
-      - name: Test protected-note password policy
-        run: node scripts/test-password-policy.mjs
-
-      - name: Test unified note editing
-        run: node scripts/test-note-ui.mjs
-
-      - name: Validate documentation
-        run: node scripts/test-docs.mjs
+      - name: Verify Docker branch tag rules
+        run: bash scripts/test-docker-tags.sh
 
       - uses: astral-sh/setup-uv@v6
 
@@ -45,6 +45,9 @@ jobs:
 
       - name: Test backend and publication security
         run: uv run --with httpx --locked --no-dev python -m unittest discover -s tests -v
+
+      - name: Run browser smoke tests
+        run: bash scripts/test-browser.sh
 
       - name: Build Python wheel
         run: uv build --wheel --out-dir dist
@@ -55,7 +58,7 @@ jobs:
       - name: Create application package
         shell: bash
         run: |
-          version="master-${GITHUB_SHA:0:7}"
+          version="build-${GITHUB_SHA:0:7}"
           bash scripts/build-package.sh "$version"
 
       - name: Verify packaged documentation
@@ -71,7 +74,7 @@ jobs:
           retention-days: 14
 
   docker:
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')
+    needs: package
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -79,9 +82,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate optional custom image tag
+        id: custom
+        if: github.event_name == 'workflow_dispatch' && inputs.custom_tag != ''
+        env:
+          CUSTOM_TAG: ${{ inputs.custom_tag }}
+        shell: bash
+        run: echo "tag=$(bash scripts/docker-custom-tag.sh "$CUSTOM_TAG")" >> "$GITHUB_OUTPUT"
+
+      - name: Derive branch image tag
+        id: branch
+        if: github.event_name != 'pull_request' && github.ref != 'refs/heads/master' && steps.custom.outputs.tag == ''
+        env:
+          BRANCH_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: echo "tag=$(bash scripts/docker-branch-tag.sh "$BRANCH_NAME")" >> "$GITHUB_OUTPUT"
+
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -92,13 +112,18 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=master
-            type=sha,prefix=sha-
+            type=raw,value=master,enable=${{ github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && steps.custom.outputs.tag == '' }}
+            type=sha,prefix=sha-,enable=${{ github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && steps.custom.outputs.tag == '' }}
+            type=raw,value=${{ steps.branch.outputs.tag }},enable=${{ steps.branch.outputs.tag != '' }}
+            type=raw,value=dev-${{ steps.branch.outputs.tag }}-${{ github.sha }},enable=${{ steps.branch.outputs.tag != '' }}
+            type=raw,value=${{ steps.custom.outputs.tag }},enable=${{ steps.custom.outputs.tag != '' }}
+            type=raw,value=dev-${{ steps.custom.outputs.tag }}-${{ github.sha }},enable=${{ steps.custom.outputs.tag != '' }}
+            type=ref,event=pr
 
       - uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

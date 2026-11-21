@@ -85,6 +85,6 @@ function init() {
 }
 
 // Watch to allow for delayed config load.
-watch(() => globalStore.config.hideRecentlyModified, init);
+watch(() => [globalStore.config.quickAccessHide, globalStore.config.quickAccessTerm, globalStore.config.quickAccessSort, globalStore.config.quickAccessLimit], init);
 onMounted(init);
 </script>

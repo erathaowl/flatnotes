@@ -67,7 +67,7 @@ Internet access. The `FLATNOTES_PATH` directory remains external to the
 installed package so that notes, attachments and SQLite publication settings
 survive application upgrades.
 
-To build from source, run `npm ci && npm run build`,
+To build from source, run `npm ci && npm run build && npm test`,
 `bash scripts/prepare-web-assets.sh`, then `uv build --wheel`. The wheel is
 validated in CI by installing it into a clean virtual environment from outside
 the repository, then exercising the CLI, health endpoint, HTML page, API and

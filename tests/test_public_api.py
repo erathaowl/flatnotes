@@ -499,6 +499,59 @@ class PublicApiTests(unittest.TestCase):
         self.assertNotIn("'unsafe-inline'", policy.split("script-src ", 1)[1].split(";", 1)[0])
         self.assertIn("img-src 'self' data: blob:", policy)
 
+    def test_anonymous_access_to_private_endpoints_is_rejected(self):
+        for method, url, options in (
+            ("GET", "/api/notes/PrivateAccess", {}),
+            ("GET", "/api/search?term=PrivateAccess", {}),
+            ("GET", "/api/tags", {}),
+            ("GET", "/api/encrypted-notes", {}),
+            ("GET", "/api/encrypted-notes/" + "ab12" * 8, {}),
+            ("GET", "/api/attachments/private.svg", {}),
+            ("POST", "/api/notes", {"json": {"title": "Unauthorized"}}),
+            ("PATCH", "/api/notes/PrivateAccess", {"json": {"newContent": "bad"}}),
+            ("DELETE", "/api/notes/PrivateAccess", {}),
+            ("POST", "/api/attachments", {"files": {"file": ("bad.txt", b"bad")}}),
+            ("PUT", "/api/encrypted-notes/" + "ab12" * 8, {"content": b"bad"}),
+            ("DELETE", "/api/encrypted-notes/" + "ab12" * 8, {}),
+        ):
+            with self.subTest(method=method, url=url):
+                response = self.client.request(method, url, **options)
+                self.assertEqual(response.status_code, 401, response.text)
+
+    def test_private_attachments_are_sandboxed(self):
+        attachments = Path("data/attachments")
+        attachments.mkdir(exist_ok=True)
+        for name, content, inline in (
+            ("private.svg", b'<svg onload="alert(1)"/>', False),
+            ("private.html", b"<script>alert(1)</script>", False),
+            ("private.png", b"test image", True),
+        ):
+            with self.subTest(name=name):
+                (attachments / name).write_bytes(content)
+                self.assertEqual(self.client.get("/api/attachments/" + name).status_code, 401)
+                response = self.client.get("/api/attachments/" + name, headers=self.headers)
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertEqual(response.headers["x-content-type-options"], "nosniff")
+                self.assertIn("sandbox", response.headers["content-security-policy"])
+                if inline:
+                    self.assertNotIn("attachment", response.headers.get("content-disposition", ""))
+                else:
+                    self.assertIn("attachment", response.headers["content-disposition"])
+
+    def test_private_html_uses_restrictive_csp(self):
+        for route in ("/", "/search", "/n/Private", "/new", "/encrypted"):
+            with self.subTest(route=route):
+                response = self.client.get(route)
+                self.assertEqual(response.status_code, 200)
+                policy = response.headers["content-security-policy"]
+                self.assertIn("script-src 'self'", policy)
+                self.assertIn("object-src 'none'", policy)
+                self.assertNotIn(
+                    "'unsafe-inline'",
+                    policy.split("script-src ", 1)[1].split(";", 1)[0],
+                )
+                self.assertEqual(response.headers["referrer-policy"], "no-referrer")
+
     def test_private_note_is_not_public(self):
         self.create_note("Private", "Private content")
         self.assertEqual(self.client.get("/api/notes/Private").status_code, 401)

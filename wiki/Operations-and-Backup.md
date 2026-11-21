@@ -15,6 +15,22 @@ flatnotes 6.4.0 ships with three deployment artifacts:
 A production deployment needs a writable data directory, application
 authentication, controlled backups and HTTPS for mobile Web Crypto.
 
+## Developer layout and tests
+
+The FastAPI entry point is `server/main.py`; shared storage and authentication
+live in `server/context.py`. Dedicated modules (`api_notes.py`,
+`api_publications.py`, `api_encrypted.py`, and `api_attachments.py`)
+define routes without changing their public URLs. The one-time 6.3 expiration
+migration is isolated in `expiration_migration.py`.
+
+Run the existing JavaScript and cryptography checks with `npm test` after
+`npm run build`. Backend tests use `python -m unittest discover -s tests -v`
+inside the project environment. The CI pipeline also runs browser smoke
+tests with Chromium, covering login, private notes, anonymous Markdown
+sharing, and the encrypted-note unlock page. After the tests pass, the Docker
+image is built on every branch; branch builds have a seven-day GHCR retention
+policy, administered by the daily cleanup workflow on `master`.
+
 ## Persistent data layout
 
 ```text

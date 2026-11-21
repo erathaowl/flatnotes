@@ -1,5 +1,5 @@
 <template>
-  <Modal v-model="isVisible" class="max-h-[85vh] overflow-y-auto px-6 py-4">
+  <Modal v-model="isVisible" class="max-h-[85dvh] px-6 py-4">
     <h2 class="mb-4 text-xl">Share note</h2>
     <p class="mb-4 truncate text-sm text-theme-text-muted">{{ title }}</p>
 
@@ -77,7 +77,7 @@
 
     <p v-if="errorMessage" role="alert" class="mb-4 text-sm text-theme-danger">{{ errorMessage }}</p>
 
-    <div class="flex flex-wrap justify-end gap-2">
+    <div class="sticky bottom-0 z-10 -mx-6 -mb-4 flex flex-wrap justify-end gap-2 bg-theme-background px-6 py-4">
       <CustomButton v-if="published && !draft" label="Unpublish" style="danger" :disabled="busy" @click="unpublish" />
       <CustomButton
         v-if="published && !published.expired && access !== 'private' && previewSlug === published.slug"

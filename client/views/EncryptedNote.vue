@@ -66,7 +66,6 @@
         <NoteToolbar
           encrypted
           :editing="editing"
-          :isNew="isNew"
           :canModify="canEdit"
           :consumed="consumedView"
           :showExport="!publicSlug"
@@ -171,7 +170,6 @@ const consumedView = ref(false);
 const message = ref("");
 const loadError = ref("");
 const editor = ref(null);
-const titleInput = ref(null);
 const titleError = ref(false);
 const fileInput = ref(null);
 const attachments = ref([]);

@@ -11,7 +11,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from flatnotes.publications import SLUG_PATTERN, SlugConflictError, note_slug
+from flatnotes.publications import SLUG_PATTERN, SlugConflictError
 from flatnotes.expiration import configure, is_expired, public_info
 
 NOTE_ID = re.compile(r"^[0-9a-f]{32}$")
@@ -70,14 +70,6 @@ class EncryptedPublicationStore:
     def __init__(self, publication_store):
         self.store = publication_store
         with self.store.connection(write=True) as db:
-            db.execute(
-                """CREATE TABLE IF NOT EXISTS encrypted_publications (
-                    note_id TEXT PRIMARY KEY,
-                    slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                    slug_mode TEXT NOT NULL CHECK(slug_mode IN ('random','title','custom')),
-                    permission TEXT NOT NULL CHECK(permission = 'read')
-                )"""
-            )
             # Downgrade existing public edit links without changing their URLs.
             db.execute("UPDATE encrypted_publications SET permission='read' WHERE permission='edit'")
 

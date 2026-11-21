@@ -76,9 +76,24 @@ for (const file of docs) {
   assert.doesNotMatch(read(file), /\/api\/expiring-notes|\/expiring\b/);
 }
 
+const releaseWorkflow = read(".github/workflows/release.yml");
+assert.doesNotMatch(releaseWorkflow, /git push --force|--clobber/);
+
+const buildWorkflow = read(".github/workflows/build.yml");
+const cleanupWorkflow = read(".github/workflows/cleanup-dev-images.yml");
+assert.match(buildWorkflow, /needs: package/);
+assert.match(buildWorkflow, /type=raw,value=dev-/);
+assert.match(buildWorkflow, /custom_tag:/);
+assert.match(buildWorkflow, /scripts\/docker-custom-tag\.sh/);
+assert.match(buildWorkflow, /steps\.custom\.outputs\.tag/);
+assert.match(buildWorkflow, /push: \$\{\{ github\.event_name != 'pull_request' \}\}/);
+assert.match(cleanupWorkflow, /schedule:/);
+assert.match(cleanupWorkflow, /scripts\/cleanup_ghcr\.py/);
+
 // Keep workflow triggers and links aligned with the canonical branch.
 const workflows = [
   ".github/workflows/build.yml",
+  ".github/workflows/cleanup-dev-images.yml",
   ".github/workflows/release.yml",
   ".github/workflows/publish-wiki.yml",
   ".github/workflows/update-node-lock.yml",
@@ -91,7 +106,7 @@ for (const file of [...docs, ...workflows, ...releaseNotes]) {
   assert.doesNotMatch(read(file), /\bdevelop\b/,
     "Obsolete develop branch reference in " + file);
 }
-for (const file of workflows) {
+for (const file of workflows.filter((name) => name !== ".github/workflows/cleanup-dev-images.yml")) {
   assert.match(read(file), /master/, "Missing master branch configuration in " + file);
 }
 

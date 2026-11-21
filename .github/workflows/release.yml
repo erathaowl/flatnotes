@@ -41,9 +41,19 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Refuse an already published release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.normalize.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists and cannot be overwritten." >&2
+            exit 1
+          fi
+
   package:
     needs: version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -57,17 +67,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Test browser cryptography
-        run: node scripts/test-crypto.mjs
-
-      - name: Test protected-note password policy
-        run: node scripts/test-password-policy.mjs
-
-      - name: Test unified note editing
-        run: node scripts/test-note-ui.mjs
-
-      - name: Validate documentation
-        run: node scripts/test-docs.mjs
+      - name: Test frontend, browser cryptography and docs
+        run: npm test
 
       - uses: astral-sh/setup-uv@v6
 
@@ -92,6 +93,9 @@ jobs:
 
       - name: Test backend and publication security
         run: uv run --with httpx --locked --no-dev python -m unittest discover -s tests -v
+
+      - name: Run browser smoke tests
+        run: bash scripts/test-browser.sh
 
       - name: Build Python wheel
         run: uv build --wheel --out-dir dist
@@ -167,23 +171,15 @@ jobs:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # Replace the published tag only after all build and package tests pass.
-            git tag -f "$RELEASE_TAG" "$GITHUB_SHA"
-            git push --force origin "refs/tags/$RELEASE_TAG"
-            gh release upload "$RELEASE_TAG" dist/*.tar.gz dist/*.whl \
-              --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "$RELEASE_TAG"
-          else
-            notes_args=(--generate-notes)
-            if [[ -f ".github/release-notes/${RELEASE_TAG}.md" ]]; then
-              notes_args=(--notes-file ".github/release-notes/${RELEASE_TAG}.md")
-            fi
-            gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.whl \
-              --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "$RELEASE_TAG" \
-              "${notes_args[@]}"
+            echo "Release $RELEASE_TAG already exists; published releases are immutable." >&2
+            exit 1
           fi
+          notes_args=(--generate-notes)
+          if [[ -f ".github/release-notes/${RELEASE_TAG}.md" ]]; then
+            notes_args=(--notes-file ".github/release-notes/${RELEASE_TAG}.md")
+          fi
+          gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.whl \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG" \
+            "${notes_args[@]}"

@@ -8,11 +8,10 @@ from fastapi.responses import FileResponse
 
 from flatnotes.helpers import get_env, is_valid_filename
 
-from ..base import BaseAttachments
 from ..models import AttachmentCreateResponse
 
 
-class FileSystemAttachments(BaseAttachments):
+class FileSystemAttachments:
     def __init__(self):
         self.base_path = get_env("FLATNOTES_PATH", mandatory=True)
         if not os.path.exists(self.base_path):
@@ -40,7 +39,14 @@ class FileSystemAttachments(BaseAttachments):
         filepath = os.path.join(self.storage_path, filename)
         if not os.path.isfile(filepath):
             raise FileNotFoundError(f"'{filename}' not found.")
-        return FileResponse(filepath)
+        extension = os.path.splitext(filename)[1].lower()
+        headers = {
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox",
+        }
+        if extension not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+            headers["Content-Disposition"] = "attachment"
+        return FileResponse(filepath, headers=headers)
 
     def _save_file(self, file: UploadFile):
         filepath = os.path.join(self.storage_path, file.filename)
