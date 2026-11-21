@@ -194,7 +194,7 @@ Le note Markdown e cifrate condividono campo titolo, barra comandi e interruttor
 
 ## Pubblicazione delle note
 
-Apri una nota già salvata e premi **Share**. Le note sono inizialmente private. Puoi scegliere l'accesso pubblico in **sola lettura** o abilitare **la modifica da parte di chi possiede il collegamento**.
+Apri una nota già salvata e premi **Share**. Le note sono inizialmente private. Puoi scegliere l'accesso pubblico in **sola lettura** o, per le sole note Markdown, abilitare **la modifica da parte di chi possiede il collegamento**.
 
 Il suffisso dell'URL può essere:
 
