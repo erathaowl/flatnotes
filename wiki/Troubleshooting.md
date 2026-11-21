@@ -79,7 +79,7 @@ and its public slug. Revocation or slug changes invalidate the old
 link. For protected notes, the recipient also needs the encryption
 password delivered separately from the URL.
 
-A public edit link permits anonymous modification and should be
+A public editable Markdown link permits anonymous modification and should be
 handled as a bearer capability. Avoid predictable custom slugs
 for sensitive sharing.
 
