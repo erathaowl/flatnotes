@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flatnotes"
-version = "6.4.0"
+version = "6.5.0"
 description = "Self-hosted Markdown notes with optional browser encryption, expiration and sharing."
 readme = "README.md"
 requires-python = ">=3.13,<3.14"

@@ -1,4 +1,4 @@
-**flatnotes v6.4.0**
+**flatnotes v6.5.0**
 
 - [Home](https://github.com/erathaowl/flatnotes/wiki/Home)
 - [Docker and Releases](https://github.com/erathaowl/flatnotes/wiki/Docker-and-Releases)

@@ -3,7 +3,7 @@
 flatnotes exposes OpenAPI documentation at `/docs` and the schema at
 `/openapi.json`. Prefixes follow `FLATNOTES_PATH_PREFIX` when configured.
 This page explains the note, publishing and encrypted-byte routes used by
-the 6.4.0 frontend. See the generated schema for exact response models.
+the 6.5.0 frontend. See the generated schema for exact response models.
 
 ## Authentication
 

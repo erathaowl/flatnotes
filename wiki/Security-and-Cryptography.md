@@ -1,7 +1,7 @@
 # Security Model and Cryptography
 
 This document describes the implemented security boundary for protected
-notes in flatnotes 6.4.0. It is a technical design reference, not a formal
+notes in flatnotes 6.5.0. It is a technical design reference, not a formal
 third-party security audit.
 
 ## Trust boundary
@@ -129,6 +129,27 @@ The browser's private unlock path does not contact the public single-view endpoi
 
 Automatic note deletion is opt-in within the Share modal, unchecked by default. It removes active files but cannot erase historic backups or snapshots. Manually unpublishing preserves the original.
 
+
+## Browser and attachment isolation
+
+Version 6.5.0 applies a Content Security Policy to private and public
+application HTML, together with a no-referrer policy and disabled caching.
+Private attachment responses use `X-Content-Type-Options: nosniff` and
+`Content-Security-Policy: sandbox`. Non-raster attachment types are served as
+downloads; supported raster images can remain inline. These headers reduce
+the risk of executable uploads running with the application's origin.
+
+Private API endpoints still require authentication in `password` or
+`totp` mode. A public Markdown link with `edit` permission deliberately
+permits anonymous content edits to that one note; encrypted public links
+remain read-only.
+
+**Deployment requirement:** terminate HTTPS at a trusted reverse proxy and
+keep the backend inaccessible directly from outside that proxy. Flatnotes
+does not enforce HTTPS or HSTS itself and has no built-in login rate limiter;
+configure redirect, HSTS and per-IP login throttling at the proxy. The
+browser session token remains JavaScript-accessible, so same-origin script
+injection is a relevant threat even with CSP.
 
 ## Security boundaries and limitations
 

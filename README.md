@@ -41,13 +41,13 @@ Release assets include a standalone Python wheel containing the FastAPI backend,
 the complete compiled Vue frontend, and the `flatnotes` command-line launcher.
 The target machine needs **Python 3.13**, but **does not need Node.js**.
 
-Download `flatnotes-6.4.0-py3-none-any.whl` from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0), then run:
+Download `flatnotes-6.5.0-py3-none-any.whl` from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.5.0), then run:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.4.0-py3-none-any.whl
+pip install flatnotes-6.5.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -80,7 +80,7 @@ Create a `compose.yaml` file:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.4.0
+    image: ghcr.io/erathaowl/flatnotes:v6.5.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -106,7 +106,7 @@ Set `FLATNOTES_PASSWORD` and `FLATNOTES_SECRET_KEY` in a local `.env` file, usin
 docker compose up -d
 ```
 
-Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.4.0` release. Use `:latest` for the latest published release or `:master` only when testing the latest commits on the primary branch.
+Open `http://localhost:8080`. Data and publication settings persist in the `./data` directory. The example pins the `v6.5.0` release. Use `:latest` for the latest published release or `:master` only when testing the latest commits on the primary branch.
 
 See [Docker and Releases](wiki/Docker-and-Releases.md) and [Environment Variables](wiki/Environment-Variables.md) for a complete configuration reference.
 
@@ -254,9 +254,24 @@ Back up ordinary notes, encrypted envelopes, attachments, and the SQLite databas
 
 ## Builds and releases
 
-GitHub Actions on `master` run frontend compilation and Python tests, produce an application `.tar.gz` and a Python `.whl` artifact, and publish `ghcr.io/erathaowl/flatnotes:master` and `:sha-<commit>`. Pull requests validate builds without publishing images.
+GitHub Actions build the frontend, run JavaScript and Python tests, exercise the
+application in Chromium (including the mobile Share dialog), and verify the
+installable wheel and application archive. The Docker job starts only after
+these checks succeed. Pull requests build Docker without publishing to GHCR.
 
-Pushing a version tag `vX.Y.Z` (or `vX.Y`, normalized to `vX.Y.0`) builds and publishes `ghcr.io/erathaowl/flatnotes:vX.Y.Z`, updates `:latest`, and creates a [GitHub Release](https://github.com/erathaowl/flatnotes/releases) containing a compiled frontend/backend archive and an installable wheel. This archive is a source bundle, not a Python wheel.
+A successful push to `master` publishes `:master` and `:sha-<commit>`.
+Other branches publish a disposable image tagged with their branch name and
+a development retention marker. A daily cleanup removes eligible development
+image versions older than seven days. Manual Build runs accept an optional
+`custom_tag`; omitting it retains the normal branch tags. Custom tags also
+expire after seven days. See [Docker and Releases](wiki/Docker-and-Releases.md)
+for restrictions and GHCR cleanup permissions.
+
+A release tag `vX.Y.Z` (or a change to `.github/release-request.txt` on
+`master`) builds and publishes `ghcr.io/erathaowl/flatnotes:vX.Y.Z`, updates
+`:latest`, and creates a [GitHub Release](https://github.com/erathaowl/flatnotes/releases)
+with a compiled application archive and installable wheel. Release assets and
+published tags are kept immutable.
 
 ## Documentation
 

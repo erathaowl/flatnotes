@@ -1,18 +1,30 @@
 # Troubleshooting
 
-Use this checklist for flatnotes 6.4.0. Avoid sharing passwords,
+Use this checklist for flatnotes 6.5.0. Avoid sharing passwords,
 authenticated tokens, or decrypted note contents when reporting bugs.
 
 ## Refreshing `/encrypted` shows JSON 404
 
 The application uses Vue history-mode routes and needs FastAPI (or
 your reverse proxy) to serve the frontend shell for direct navigation.
-The backend in 6.4.0 registers `/encrypted` as a page URL.
+Since 6.4.0 the backend registers `/encrypted` as a page URL.
 
 If you still receive `{"detail":"Not Found"}`, verify that your
 container really runs the updated image and that the reverse proxy
 is forwarding the route to flatnotes, rather than to another app.
-`:master` and `:v6.4.0` are separate image tags.
+`:master` and `:v6.5.0` are separate image tags.
+
+## Share dialog controls are not reachable on a phone
+
+In v6.5.0, the Share dialog is bounded by the available browser viewport.
+Its contents scroll within the dialog, while Save, Apply and Close remain
+accessible near the bottom. If the old layout still appears on iPhone Safari,
+verify the deployed image tag, pull and restart the container, then reload the
+page to refresh its compiled frontend assets.
+
+The browser smoke suite covers a short 390×600 touch viewport, but physical
+iOS Safari can render its toolbar and safe areas differently. Include device
+model, iOS/Safari version and screenshots when reporting a remaining issue.
 
 ## Encryption does not work from a phone
 
