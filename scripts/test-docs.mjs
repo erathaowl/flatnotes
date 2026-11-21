@@ -45,7 +45,12 @@ for (const file of docs) {
     "Outdated release link in " + file);
 }
 
-for (const file of ["README.md", "readme-it.md", "wiki/Home.md", "wiki/_Sidebar.md"]) {
+for (const file of [
+  "README.md", "readme-it.md", "wiki/Home.md", "wiki/_Sidebar.md",
+  "wiki/API-Reference.md", "wiki/Custom-Branding.md", "wiki/Docker-and-Releases.md",
+  "wiki/Encrypted-Notes.md", "wiki/Operations-and-Backup.md", "wiki/Publishing-Notes.md",
+  "wiki/Security-and-Cryptography.md", "wiki/Troubleshooting.md",
+]) {
   assert.ok(read(file).includes(version), "Missing current version in " + file);
 }
 for (const file of ["README.md", "readme-it.md", "wiki/Docker-and-Releases.md"]) {

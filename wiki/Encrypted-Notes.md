@@ -207,7 +207,7 @@ localStorage or sessionStorage.
 
 - **Password recovery:** not available. Deleting a note without its
   password is possible, but decrypting it is not.
-- **Change password:** not implemented in 6.4.0.
+- **Change password:** not implemented in 6.5.0.
 - **Remove protection:** not implemented; exporting unlocked Markdown
   produces a local plaintext copy instead.
 - **Password policy:** affects newly created protection passwords,
