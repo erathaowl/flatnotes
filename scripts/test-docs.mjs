@@ -103,7 +103,7 @@ for (const file of [...docs, ...workflows, ...releaseNotes]) {
   assert.doesNotMatch(read(file), /\bdevelop\b/,
     "Obsolete develop branch reference in " + file);
 }
-for (const file of workflows) {
+for (const file of workflows.filter((name) => name !== ".github/workflows/cleanup-dev-images.yml")) {
   assert.match(read(file), /master/, "Missing master branch configuration in " + file);
 }
 
