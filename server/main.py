@@ -4,7 +4,7 @@ from html import escape
 import mimetypes
 from threading import Event, Thread
 
-from fastapi import APIRouter, FastAPI, HTTPException, Response, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 

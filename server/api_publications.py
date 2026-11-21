@@ -68,20 +68,6 @@ if global_config.auth_type != AuthType.READ_ONLY:
             publication_store.remove(title, db)
 
 
-def public_note_or_404(slug: str):
-    if not global_config.sharing_enabled:
-        raise HTTPException(404, "Sharing is disabled")
-    publication = publication_store.get_by_slug(slug)
-    if not publication:
-        raise HTTPException(404, "Note not found")
-    try:
-        ensure_public_active(publication)
-        note = note_storage.get(publication["note_title"])
-    except (FileNotFoundError, ValueError):
-        raise HTTPException(404, "Note not found")
-    return publication, note
-
-
 @router.get("/api/public/notes/{slug}", response_model=PublicNote)
 def read_public_note(slug: str, response: Response):
     response.headers["Cache-Control"] = "no-store"

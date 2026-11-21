@@ -81,7 +81,6 @@ async def protect_existing_note(
         is_valid_filename(title)
         with publication_store.connection(write=True) as db:
             # Check only the source file's existence. Do not read its content.
-            from pathlib import Path
             original_path = Path(note_storage._path_from_title(title))
             if not original_path.is_file():
                 raise HTTPException(404, "Note not found")

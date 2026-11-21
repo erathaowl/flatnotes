@@ -41,6 +41,16 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Refuse an already published release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.normalize.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists and cannot be overwritten." >&2
+            exit 1
+          fi
+
   package:
     needs: version
     runs-on: ubuntu-24.04
@@ -57,17 +67,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Test browser cryptography
-        run: node scripts/test-crypto.mjs
-
-      - name: Test protected-note password policy
-        run: node scripts/test-password-policy.mjs
-
-      - name: Test unified note editing
-        run: node scripts/test-note-ui.mjs
-
-      - name: Validate documentation
-        run: node scripts/test-docs.mjs
+      - name: Test frontend, browser cryptography and docs
+        run: npm test
 
       - uses: astral-sh/setup-uv@v6
 

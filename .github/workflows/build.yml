@@ -26,17 +26,8 @@ jobs:
           npm ci
           npm run build
 
-      - name: Test browser cryptography
-        run: node scripts/test-crypto.mjs
-
-      - name: Test protected-note password policy
-        run: node scripts/test-password-policy.mjs
-
-      - name: Test unified note editing
-        run: node scripts/test-note-ui.mjs
-
-      - name: Validate documentation
-        run: node scripts/test-docs.mjs
+      - name: Test frontend, browser cryptography and docs
+        run: npm test
 
       - uses: astral-sh/setup-uv@v6
 
