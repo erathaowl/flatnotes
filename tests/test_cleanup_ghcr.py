@@ -1,9 +1,11 @@
 """Safety checks for GitHub Container Registry development-image cleanup."""
 
 import importlib.util
+import os
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 
 script_path = Path(__file__).resolve().parents[1] / "scripts" / "cleanup_ghcr.py"
@@ -65,6 +67,46 @@ class DevelopmentImageCleanupTests(unittest.TestCase):
                     self.version([self.marker], created),
                     self.cutoff,
                 ))
+
+    def test_dry_run_never_calls_delete(self):
+        old = self.version(["refactor", self.marker], "2000-01-01T00:00:00Z")
+        old["id"] = 123
+        environment = {
+            "GH_TOKEN": "test-token",
+            "GITHUB_REPOSITORY": "erathaowl/flatnotes",
+            "GHCR_OWNER_TYPE": "User",
+            "DRY_RUN": "true",
+        }
+        with (
+            patch.dict(os.environ, environment),
+            patch.object(cleanup, "list_versions", return_value=[old]),
+            patch.object(cleanup, "request_api") as request_api,
+        ):
+            cleanup.main()
+        request_api.assert_not_called()
+
+    def test_only_expired_development_versions_are_deleted(self):
+        old = self.version([self.marker], "2000-01-01T00:00:00Z")
+        old["id"] = 123
+        protected = self.version(["latest", self.marker], "2000-01-01T00:00:00Z")
+        protected["id"] = 456
+        environment = {
+            "GH_TOKEN": "test-token",
+            "GITHUB_REPOSITORY": "erathaowl/flatnotes",
+            "GHCR_OWNER_TYPE": "User",
+            "DRY_RUN": "false",
+        }
+        with (
+            patch.dict(os.environ, environment),
+            patch.object(cleanup, "list_versions", return_value=[old, protected]),
+            patch.object(cleanup, "request_api") as request_api,
+        ):
+            cleanup.main()
+        request_api.assert_called_once_with(
+            "https://api.github.com/users/erathaowl/packages/container/flatnotes/versions/123",
+            "test-token",
+            method="DELETE",
+        )
 
 
 if __name__ == "__main__":
