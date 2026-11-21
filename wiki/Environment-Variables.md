@@ -39,6 +39,34 @@ Published note metadata is stored independently in `.flatnotes-publications.db`,
 
 To expose *only individual published notes* without login, use `password` or `totp`, then enable public sharing on selected notes. The two anonymous global modes cannot enforce this isolation.
 
+### Personal instance exposed through a reverse proxy
+
+Use HTTPS and keep the application port accessible only to your reverse proxy.
+Use a long, unique account password and a persistent random
+`FLATNOTES_SECRET_KEY`. Enable `totp` if you want a second authentication
+factor. A public Markdown share with `permission: edit` is intentionally
+editable by anyone who knows its URL; prefer random share slugs.
+
+For an Nginx reverse proxy, limit failed *and successful* requests to the login
+endpoint with a small per-IP limit. For example, put the zone inside the
+Nginx `http` context and the location inside the virtual host:
+
+```nginx
+limit_req_zone $binary_remote_addr zone=flatnotes_login:10m rate=5r/m;
+
+location = /api/token {
+    limit_req zone=flatnotes_login burst=3 nodelay;
+    limit_req_status 429;
+    proxy_pass http://127.0.0.1:18080;
+}
+```
+
+If deployed under a path prefix, adjust the login location. Configure the
+trusted client-IP chain before using forwarded headers for rate limiting.
+This configuration is an example; an actual deployment must be checked
+separately. The browser stores JWTs in JavaScript-accessible storage, so
+protecting against same-origin script injection remains important.
+
 ### TOTP setup
 
 Set the following variables, using unique, long secrets for the signing and TOTP keys:

@@ -40,7 +40,14 @@ class FileSystemAttachments(BaseAttachments):
         filepath = os.path.join(self.storage_path, filename)
         if not os.path.isfile(filepath):
             raise FileNotFoundError(f"'{filename}' not found.")
-        return FileResponse(filepath)
+        extension = os.path.splitext(filename)[1].lower()
+        headers = {
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "sandbox",
+        }
+        if extension not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+            headers["Content-Disposition"] = "attachment"
+        return FileResponse(filepath, headers=headers)
 
     def _save_file(self, file: UploadFile):
         filepath = os.path.join(self.storage_path, file.filename)
