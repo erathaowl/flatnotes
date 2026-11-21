@@ -27,7 +27,9 @@ Run the existing JavaScript and cryptography checks with `npm test` after
 `npm run build`. Backend tests use `python -m unittest discover -s tests -v`
 inside the project environment. The CI pipeline also runs browser smoke
 tests with Chromium, covering login, private notes, anonymous Markdown
-sharing, and the encrypted-note unlock page.
+sharing, and the encrypted-note unlock page. After the tests pass, the Docker
+image is built on every branch; branch builds have a seven-day GHCR retention
+policy, administered by the daily cleanup workflow on `master`.
 
 ## Persistent data layout
 
