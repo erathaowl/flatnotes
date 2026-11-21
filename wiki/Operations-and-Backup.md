@@ -2,14 +2,14 @@
 
 ## Deployment options
 
-flatnotes 6.4.0 ships with three deployment artifacts:
+flatnotes 6.5.0 ships with three deployment artifacts:
 
-- GHCR images `ghcr.io/erathaowl/flatnotes:v6.4.0` and `:latest`;
+- GHCR images `ghcr.io/erathaowl/flatnotes:v6.5.0` and `:latest`;
   `:master` tracks the development branch.
 - An installable Python 3.13 wheel,
-  `flatnotes-6.4.0-py3-none-any.whl`, including the FastAPI
+  `flatnotes-6.5.0-py3-none-any.whl`, including the FastAPI
   backend, compiled Vue frontend and `flatnotes` CLI.
-- `flatnotes-6.4.0.tar.gz`, an application archive with Python
+- `flatnotes-6.5.0.tar.gz`, an application archive with Python
   backend sources and compiled frontend files.
 
 A production deployment needs a writable data directory, application
@@ -30,6 +30,25 @@ tests with Chromium, covering login, private notes, anonymous Markdown
 sharing, and the encrypted-note unlock page. After the tests pass, the Docker
 image is built on every branch; branch builds have a seven-day GHCR retention
 policy, administered by the daily cleanup workflow on `master`.
+
+## Upgrading from 6.4.0 to 6.5.0
+
+Version 6.5.0 reorganizes API routers and the expiration migration helper,
+simplifies frontend code and improves the Share dialog layout on phones.
+Existing note files (`*.md`, `*.md.enc`) and the publication SQLite database
+retain their formats. Public editing of ordinary Markdown notes remains
+available only when the owner enables it; encrypted public shares remain
+read-only.
+
+The private attachment endpoints now apply download isolation headers, and
+application HTML responses include restrictive CSP and related headers.
+Deploy behind an HTTPS reverse proxy with login rate limiting; the application
+does not automatically redirect HTTP to HTTPS. The backend should be reachable
+only from the trusted proxy or localhost.
+
+Before deploying, back up the data directory and publication database. After
+upgrading, verify login, normal and encrypted note editing, public sharing,
+expiration and the Share dialog on mobile Safari.
 
 ## Persistent data layout
 
@@ -74,7 +93,7 @@ docker compose up -d flatnotes
 docker compose logs --tail=100 flatnotes
 ```
 
-Use a pinned tag `v6.4.0` for reproducible deployments. The
+Use a pinned tag `v6.5.0` for reproducible deployments. The
 `:master` tag is for testing and changes with each successful
 development build.
 
@@ -100,7 +119,7 @@ restart the service:
 ```bash
 python3.13 -m venv .venv
 . .venv/bin/activate
-pip install --upgrade ./flatnotes-6.4.0-py3-none-any.whl
+pip install --upgrade ./flatnotes-6.5.0-py3-none-any.whl
 flatnotes --host 127.0.0.1 --port 8080
 ```
 

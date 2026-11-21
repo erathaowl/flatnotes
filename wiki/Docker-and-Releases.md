@@ -2,15 +2,15 @@
 
 ## Python wheel
 
-Download the `flatnotes-6.4.0-py3-none-any.whl` asset from the
-[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0).
+Download the `flatnotes-6.5.0-py3-none-any.whl` asset from the
+[GitHub Release](https://github.com/erathaowl/flatnotes/releases/tag/v6.5.0).
 It includes the FastAPI backend and compiled Vue frontend. Installation requires
 Python 3.13, but neither Node.js nor Docker:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.4.0-py3-none-any.whl
+pip install flatnotes-6.5.0-py3-none-any.whl
 export FLATNOTES_PATH="/var/lib/flatnotes"
 export FLATNOTES_AUTH_TYPE="password"
 export FLATNOTES_USERNAME="admin"
@@ -56,8 +56,8 @@ images and update `latest`. Versioned images are preferable for reproducible
 deployments once releases exist.
 
 Each development branch also publishes a disposable image after passing all
-tests. For example, the `refactor` branch publishes
-`ghcr.io/erathaowl/flatnotes:refactor`. Branch names incompatible with Docker
+tests. For example, a `testing` branch publishes
+`ghcr.io/erathaowl/flatnotes:testing`. Branch names incompatible with Docker
 tags (such as `feature/login`) are normalized and receive a short hash suffix
 to prevent collisions. Names reserved for releases and production are prefixed
 with `branch-`.
@@ -93,15 +93,24 @@ The cleanup uses the package-version REST API and requires the repository's
 `GITHUB_TOKEN` to have **admin access to the GHCR package**. If deletion
 fails with HTTP 403, grant this repository Actions admin access from the
 package settings. Automatic schedules run only from the repository's default
-branch: the cleanup workflow becomes scheduled once it has been merged to
-`master`. A manual run defaults to dry-run mode.
+branch (`master`). The workflow is installed there and runs daily at 04:17 UTC.
+A manual run defaults to dry-run mode. Always verify cleanup permissions and
+review a dry-run before relying on automatic retention.
+
+## Validation before publication
+
+The Build workflow runs `npm test`, the Python unit suite, real Chromium
+browser smoke tests (including a compact mobile Share dialog), and clean wheel
+and application-bundle checks. The Docker job depends on the successful
+`package` job. Pull requests build the image without publishing it; branch
+pushes upload disposable images only after the checks succeed.
 
 ## Docker Compose installation
 
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.4.0
+    image: ghcr.io/erathaowl/flatnotes:v6.5.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -141,7 +150,7 @@ docker run -d --name flatnotes \
   -e FLATNOTES_SECRET_KEY="$FLATNOTES_SECRET_KEY" \
   -v "$(pwd)/data:/data" \
   --restart unless-stopped \
-  ghcr.io/erathaowl/flatnotes:v6.4.0
+  ghcr.io/erathaowl/flatnotes:v6.5.0
 ```
 
 ## CI/CD

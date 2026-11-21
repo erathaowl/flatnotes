@@ -1,6 +1,6 @@
 # Publishing Notes
 
-flatnotes 6.4.0 supports public links for ordinary Markdown and browser-encrypted notes. **Expiration belongs to the public link**, leaving the original note accessible to its owner.
+flatnotes 6.5.0 supports public links for ordinary Markdown and browser-encrypted notes. **Expiration belongs to the public link**, leaving the original note accessible to its owner.
 
 ## Configuring a share
 
@@ -12,7 +12,12 @@ Inside the same dialog, choose **Expiration**: Never (default), After N hours, A
 
 On saved notes, click **Save** to apply the share settings. On new notes, click **Apply** to stage them locally, then Save the note: creation precedes publication. If publication fails, the note remains saved.
 
-The Share action uses the normal foreground color when a live publication exists and is muted when the note is private or the link has expired.
+The Share action uses the normal foreground color when a live publication exists and is muted when the note is private or the link has expired. On narrow mobile screens, the Share dialog scrolls within the available viewport, and its action buttons stay accessible in a fixed-position footer.
+
+A public `edit` link acts as an editing credential: anyone who obtains the
+URL can change the ordinary Markdown content without logging in. Use random
+slugs and share such links only with recipients you trust. Public editing does
+not grant access to account settings, private search or other private notes.
 
 ## Deadline, renewal and deletion
 
