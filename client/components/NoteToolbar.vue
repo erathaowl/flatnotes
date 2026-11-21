@@ -75,7 +75,6 @@ import Toggle from "./Toggle.vue";
 defineProps({
   encrypted: { type: Boolean, default: false },
   editing: { type: Boolean, default: false },
-  isNew: { type: Boolean, default: false },
   canModify: { type: Boolean, default: true },
   consumed: { type: Boolean, default: false },
   showShare: { type: Boolean, default: false },

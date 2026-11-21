@@ -22,6 +22,9 @@ assert.doesNotMatch(toolbar, /label="Expiration"|expirationActive|showExpiration
 assert.match(toolbar, /:style="shareActive \? 'active' : 'subtle'"/);
 assert.match(toolbar, /label="Delete"\s+style="danger"/);
 assert.match(toolbar, /<Toggle\b/);
+assert.doesNotMatch(toolbar, /isNew:/);
+assert.match(plain, /:draft="isNewNote"/);
+assert.match(encrypted, /:draft="isNew"/);
 assert.match(share, /<ExpirationSelect\b/);
 assert.match(share, /Automatically delete this note when the share expires/);
 assert.match(share, /autoDeleteNote/);

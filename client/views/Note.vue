@@ -69,7 +69,6 @@
     >
       <NoteToolbar
         :editing="editMode"
-        :isNew="isNewNote"
         :canModify="canModify"
         :showShare="globalStore.config.sharingEnabled && canModify"
         :showProtect="globalStore.config.encryptionEnabled && canModify"
@@ -426,8 +425,6 @@ function closeNote() {
   editMode.value = false;
   if (isNewNote.value) {
     router.push({ name: "home" });
-  } else {
-    editMode.value = false;
   }
 }
 

@@ -66,7 +66,6 @@
         <NoteToolbar
           encrypted
           :editing="editing"
-          :isNew="isNew"
           :canModify="canEdit"
           :consumed="consumedView"
           :showExport="!publicSlug"

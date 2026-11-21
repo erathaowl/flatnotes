@@ -45,114 +45,74 @@ export function apiErrorHandler(error, toast) {
 }
 
 export async function getConfig() {
-  try {
-    const response = await api.get("api/config");
-    return response.data;
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.get("api/config");
+  return response.data;
 }
 
 export async function getToken(username, password, totp) {
-  try {
-    const response = await api.post("api/token", {
-      username: username,
-      password: totp ? password + totp : password,
-    });
-    return response.data.access_token;
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.post("api/token", {
+    username: username,
+    password: totp ? password + totp : password,
+  });
+  return response.data.access_token;
 }
 
 export async function authCheck() {
-  try {
-    const response = await api.get("api/auth-check");
-    return response.data;
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.get("api/auth-check");
+  return response.data;
 }
 
 export async function getNotes(term, sort, order, limit) {
-  try {
-    const response = await api.get("api/search", {
-      params: {
-        term: term,
-        sort: sort,
-        order: order,
-        limit: limit,
-      },
-    });
-    return response.data.map((note) => new SearchResult(note));
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.get("api/search", {
+    params: {
+      term: term,
+      sort: sort,
+      order: order,
+      limit: limit,
+    },
+  });
+  return response.data.map((note) => new SearchResult(note));
 }
 
 export async function createNote(title, content) {
-  try {
-    const response = await api.post("api/notes", {
-      title: title,
-      content: content,
-    });
-    return new Note(response.data);
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.post("api/notes", {
+    title: title,
+    content: content,
+  });
+  return new Note(response.data);
 }
 
 export async function getNote(title) {
-  try {
-    const response = await api.get(`api/notes/${encodeURIComponent(title)}`);
-    return new Note(response.data);
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.get(`api/notes/${encodeURIComponent(title)}`);
+  return new Note(response.data);
 }
 
 export async function updateNote(title, newTitle, newContent) {
-  try {
-    const response = await api.patch(`api/notes/${encodeURIComponent(title)}`, {
-      newTitle: newTitle,
-      newContent: newContent,
-    });
-    return new Note(response.data);
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.patch(`api/notes/${encodeURIComponent(title)}`, {
+    newTitle: newTitle,
+    newContent: newContent,
+  });
+  return new Note(response.data);
 }
 
 export async function deleteNote(title) {
-  try {
-    await api.delete(`api/notes/${encodeURIComponent(title)}`);
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  await api.delete(`api/notes/${encodeURIComponent(title)}`);
 }
 
 export async function getTags() {
-  try {
-    const response = await api.get("api/tags");
-    return response.data;
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const response = await api.get("api/tags");
+  return response.data;
 }
 
 export async function createAttachment(file) {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    const response = await api.post("api/attachments", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
-    return response.data;
-  } catch (response) {
-    return Promise.reject(response);
-  }
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await api.post("api/attachments", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return response.data;
 }
 
 
