@@ -77,7 +77,7 @@
 
     <p v-if="errorMessage" role="alert" class="mb-4 text-sm text-theme-danger">{{ errorMessage }}</p>
 
-    <div class="sticky bottom-0 z-10 -mx-6 -mb-4 flex flex-wrap justify-end gap-2 border-t border-theme-border bg-theme-background px-6 py-4">
+    <div class="sticky bottom-0 z-10 -mx-6 -mb-4 flex flex-wrap justify-end gap-2 bg-theme-background px-6 py-4">
       <CustomButton v-if="published && !draft" label="Unpublish" style="danger" :disabled="busy" @click="unpublish" />
       <CustomButton
         v-if="published && !published.expired && access !== 'private' && previewSlug === published.slug"
