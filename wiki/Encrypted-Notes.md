@@ -172,10 +172,11 @@ review historic backups separately.
 ## Public encrypted sharing
 
 Use **Share** in an unlocked protected note. The server saves only the
-opaque note ID, chosen link suffix and `read`/`edit` permission.
+opaque note ID, chosen link suffix and read-only access.
 A public viewer downloads ciphertext, requests a local password and
-decrypts it in the browser. Anonymous editing, when explicitly enabled,
-uploads only new encrypted bytes.
+decrypts it in the browser. Public encrypted notes cannot be edited by link holders.
+Existing encrypted publications previously configured with edit permission
+are migrated to read-only without changing their URLs.
 
 For encrypted notes, choose **Random** or **Custom** public slugs.
 Generating a slug from the decrypted title is deliberately disabled:
@@ -228,7 +229,8 @@ optimistic concurrency, or `*` when creating a new note.
 Encrypted publication management uses
 `/api/encrypted-notes/{id}/publication`.
 Anonymous ciphertext endpoints use `/api/public/encrypted-notes/{slug}`,
-return ciphertext and accept writes only for explicitly editable links.
+return ciphertext in read-only mode. The public PUT endpoint is unavailable
+(HTTP 405); only the private authenticated PUT endpoint can modify a protected note.
 
 See the [environment reference](https://github.com/erathaowl/flatnotes/wiki/Environment-Variables)
 and the [README](https://github.com/erathaowl/flatnotes/blob/master/README.md).

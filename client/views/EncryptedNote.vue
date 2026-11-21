@@ -157,7 +157,6 @@ const title = ref("");
 const content = ref("");
 const ciphertext = ref("");
 const revision = ref("");
-const permission = ref("read");
 const unlocked = ref(false);
 const loading = ref(true);
 const busy = ref(false);
@@ -181,7 +180,7 @@ let cryptoSession = null;
 
 const isNew = computed(() => props.id === "new" && !props.publicSlug);
 const canEdit = computed(() =>
-  (!props.publicSlug || permission.value === "edit") &&
+  !props.publicSlug &&
   globalStore.config.authType !== "read_only" &&
   globalStore.config.encryptionEnabled &&
   !consumedView.value,
@@ -209,7 +208,6 @@ async function load() {
     ciphertext.value = result.ciphertext;
     activeId.value = result.noteId;
     revision.value = result.revision;
-    permission.value = result.permission;
     expiration.value = props.publicSlug ? result.expiration : { mode: "none", policy: "none", expiresAt: null };
   } catch (error) {
     loadError.value = error.response?.status === 404
@@ -311,7 +309,7 @@ async function save() {
     const markdown = editor.value.getMarkdown();
     const encryptedData = await cryptoSession.save(title.value.trim(), markdown, attachments.value);
     const result = await saveEncryptedNote(
-      activeId.value, encryptedData, revision.value || "*", props.publicSlug,
+      activeId.value, encryptedData, revision.value || "*",
     );
     content.value = markdown;
     savedTitle.value = title.value.trim();

@@ -44,6 +44,36 @@ class EncryptedStoreTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.store.save(self.note_id, b"", "*")
 
+    def test_legacy_public_edit_permission_is_downgraded(self):
+        # Simulate a database created before encrypted sharing became read-only.
+        with self.publications.connection(write=True) as db:
+            db.execute("DROP TABLE encrypted_publications")
+            db.execute(
+                """CREATE TABLE encrypted_publications (
+                    note_id TEXT PRIMARY KEY,
+                    slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                    slug_mode TEXT NOT NULL CHECK(slug_mode IN ('random','title','custom')),
+                    permission TEXT NOT NULL CHECK(permission IN ('read','edit'))
+                )"""
+            )
+            db.execute(
+                """INSERT INTO encrypted_publications
+                   (note_id, slug, slug_mode, permission)
+                   VALUES (?, ?, ?, ?)""",
+                (self.note_id, "old-editable-link", "custom", "edit"),
+            )
+
+        migrated = EncryptedPublicationStore(self.publications)
+        self.assertEqual(migrated.get(note_id=self.note_id)["permission"], "read")
+        self.assertEqual(migrated.get(slug="old-editable-link")["slug"], "old-editable-link")
+        self.assertEqual(
+            EncryptedPublicationStore(self.publications).get(slug="old-editable-link")["permission"],
+            "read",
+        )
+        with self.assertRaisesRegex(ValueError, "read-only"):
+            migrated.save(self.note_id, "random", "edit", None)
+        self.assertEqual(migrated.get(slug="old-editable-link")["permission"], "read")
+
     def test_cross_public_slug_collision(self):
         self.publications.set("Normal", "custom", "read", "shared", "body")
         with self.assertRaises(SlugConflictError):

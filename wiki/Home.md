@@ -25,7 +25,7 @@ See [Release notes](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0) 
 4. [Encrypted Notes](https://github.com/erathaowl/flatnotes/wiki/Encrypted-Notes):
    protect an existing note, unlock, share, attach files and delete.
 5. [Publishing Notes](https://github.com/erathaowl/flatnotes/wiki/Publishing-Notes):
-   publish read-only or anonymous-editable links.
+   publish encrypted notes read-only and optionally editable Markdown links.
 6. [Operations and Backup](https://github.com/erathaowl/flatnotes/wiki/Operations-and-Backup):
    upgrade safely and preserve persistent files.
 
@@ -66,7 +66,7 @@ persistent SQLite file.
 - `/n/{title}`: ordinary note.
 - `/encrypted`: list and manage protected notes.
 - `/e/{id}`: private protected note, unlocked with a separate password.
-- `/p/{slug}`: publicly shared note, with read or edit permission.
+- `/p/{slug}`: publicly shared note, read-only for encrypted notes and optionally editable for Markdown.
 - `/note/{title}`: legacy route, redirected in the client.
 
 With `password` or `totp` authentication, only explicitly published

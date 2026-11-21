@@ -4,7 +4,7 @@ flatnotes 6.4.0 supports public links for ordinary Markdown and browser-encrypte
 
 ## Configuring a share
 
-Open **Share** for a normal or unlocked protected note, including a new unsaved note. Choose **Private**, **Public: read-only**, or **Public: anyone with the link can edit**. Select a random URL (recommended), a title-derived URL (ordinary notes only), or a custom suffix.
+Open **Share** for a normal or unlocked protected note, including a new unsaved note. Choose **Private**, **Public: read-only**, or **Public: anyone with the link can edit** for ordinary Markdown notes. Encrypted notes allow read-only public links exclusively. Select a random URL (recommended), a title-derived URL (ordinary notes only), or a custom suffix.
 
 Inside the same dialog, choose **Expiration**: Never (default), After N hours, After N days, or Single view. Single view is available only for read-only links. Durations are limited to 3650 days and each day is 24 hours.
 
@@ -20,9 +20,15 @@ The deadline is computed by the server at publication time and stored in UTC. Ch
 
 Expired or consumed public links are rejected immediately, typically with HTTP 410 before cleanup and HTTP 404 after removal. The worker runs on startup and approximately every 60 seconds, removing expired publications. Only links with auto-delete enabled remove the underlying note.
 
-Expired links cannot be reactivated at the same public URL. Save with a new random slug or choose a different custom suffix. A manual Unpublish removes the share metadata without deleting the note.
+While an expired publication record still exists, the same public URL cannot be renewed. Save with a new random slug or choose a different custom suffix. Once cleanup removes the old record, that slug can be reused. A manual Unpublish removes the share metadata without deleting the note.
 
 Auto-delete does not securely erase storage snapshots, backups, files already downloaded or encrypted ciphertext copies. Ordinary attached files are removed conservatively only when not referenced by other notes.
+
+## Known architectural limitation and possible improvement (SEC-02)
+
+The cleanup worker permanently deletes expired publication records. After cleanup, the server forgets their slugs, so a newly created share can reuse an old public URL and make previously distributed links point to new content. This limitation is accepted for the current small/personal deployment; the cleanup behavior is unchanged.
+
+**Possible improvement:** persist retired public slugs in a dedicated SQLite table with a unique slug key and retirement timestamp. Check both active and retired slugs when creating ordinary or encrypted publications, within the same write transaction. Preserve the retired entries indefinitely to guarantee that expired URLs cannot be reactivated. Existing deleted records cannot be reconstructed without historic metadata or backups.
 
 ## Single-view ordinary links
 
@@ -50,7 +56,7 @@ Back up the full data directory and SQLite database before upgrading. Downgradin
 
 ## Publication API
 
-Authenticated endpoints: `GET/PUT/DELETE /api/notes/{title}/publication` and `GET/PUT/DELETE /api/encrypted-notes/{id}/publication`. Public endpoints: `GET/PATCH /api/public/notes/{slug}`, `GET/PUT /api/public/encrypted-notes/{slug}` and `POST /api/public/encrypted-notes/{slug}/view`.
+Authenticated endpoints: `GET/PUT/DELETE /api/notes/{title}/publication` and `GET/PUT/DELETE /api/encrypted-notes/{id}/publication`. Public endpoints: `GET/PATCH /api/public/notes/{slug}`, `GET /api/public/encrypted-notes/{slug}` and `POST /api/public/encrypted-notes/{slug}/view`.
 
 Example request body:
 
