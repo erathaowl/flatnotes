@@ -115,7 +115,7 @@ read-only; older edit permissions are converted to read-only at startup.
 Only the owner's private authenticated endpoint can update ciphertext.
 
 Publication metadata is **not** encrypted: the server knows the
-public slug, opaque note ID and read/edit permission. A random slug is
+public slug, opaque note ID and read-only permission. A random slug is
 recommended; custom slugs can be guessed. Using the encrypted title as
 a public slug is deliberately unsupported.
 
