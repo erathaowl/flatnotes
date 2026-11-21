@@ -46,6 +46,9 @@ jobs:
       - name: Test backend and publication security
         run: uv run --with httpx --locked --no-dev python -m unittest discover -s tests -v
 
+      - name: Run browser smoke tests
+        run: bash scripts/test-browser.sh
+
       - name: Build Python wheel
         run: uv build --wheel --out-dir dist
 
