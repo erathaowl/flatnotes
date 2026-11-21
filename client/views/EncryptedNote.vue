@@ -170,7 +170,6 @@ const consumedView = ref(false);
 const message = ref("");
 const loadError = ref("");
 const editor = ref(null);
-const titleInput = ref(null);
 const titleError = ref(false);
 const fileInput = ref(null);
 const attachments = ref([]);

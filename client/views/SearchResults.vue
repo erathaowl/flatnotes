@@ -17,7 +17,7 @@
 
       <!-- Search Results -->
       <div
-        v-for="result in results"
+        v-for="result in sortedResults"
         class="mb-4 cursor-pointer rounded px-2 py-1 hover:bg-theme-background-elevated"
       >
         <RouterLink :to="{ name: 'note', params: { title: result.title } }">
@@ -84,7 +84,7 @@ function init() {
   loadingIndicator.value.setLoading();
   getNotes(props.searchTerm)
     .then((data) => {
-      results.value = sortResults(data);
+      results.value = data;
       if (results.value.length > 0) {
         loadingIndicator.value.setLoaded();
       } else {
@@ -97,19 +97,16 @@ function init() {
     });
 }
 
-function sortResults(results) {
+const sortedResults = computed(() => {
+  const items = [...results.value];
   if (props.sortBy === searchSortOptions.title) {
-    return results.sort((a, b) => a.title.localeCompare(b.title));
-  } else if (props.sortBy === searchSortOptions.lastModified) {
-    return results.sort((a, b) => b.lastModified - a.lastModified);
-  } else {
-    return results.sort((a, b) => b.score - a.score);
+    return items.sort((a, b) => a.title.localeCompare(b.title));
   }
-}
-
-function reSortResults() {
-  results.value = sortResults(results.value);
-}
+  if (props.sortBy === searchSortOptions.lastModified) {
+    return items.sort((a, b) => b.lastModified - a.lastModified);
+  }
+  return items.sort((a, b) => b.score - a.score);
+});
 
 function updateSortByParam(sortBy) {
   router.push({
@@ -148,7 +145,6 @@ function toggleSortMenu(event) {
 }
 
 watch(() => props.searchTerm, init);
-watch(() => props.sortBy, reSortResults);
 onMounted(init);
 </script>
 
