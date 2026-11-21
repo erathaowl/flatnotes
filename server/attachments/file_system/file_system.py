@@ -8,11 +8,10 @@ from fastapi.responses import FileResponse
 
 from flatnotes.helpers import get_env, is_valid_filename
 
-from ..base import BaseAttachments
 from ..models import AttachmentCreateResponse
 
 
-class FileSystemAttachments(BaseAttachments):
+class FileSystemAttachments:
     def __init__(self):
         self.base_path = get_env("FLATNOTES_PATH", mandatory=True)
         if not os.path.exists(self.base_path):

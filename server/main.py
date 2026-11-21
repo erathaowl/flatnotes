@@ -10,13 +10,11 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from flatnotes import api_messages
-from flatnotes.attachments.base import BaseAttachments
 from flatnotes.attachments.models import AttachmentCreateResponse
 from flatnotes.auth.base import BaseAuth
 from flatnotes.auth.models import Login, Token
 from flatnotes.global_config import AuthType, GlobalConfig, GlobalConfigResponseModel
 from flatnotes.helpers import replace_base_href
-from flatnotes.notes.base import BaseNotes
 from flatnotes.notes.models import Note, NoteCreate, NoteUpdate, SearchResult
 from flatnotes.publications import PublicationStore, SlugConflictError, content_revision
 from flatnotes.encrypted_storage import EncryptedNoteStore, EncryptedPublicationStore
@@ -26,8 +24,8 @@ from flatnotes.publication_models import PublicationSettings, PublicationInfo, P
 
 global_config = GlobalConfig()
 auth: BaseAuth = global_config.load_auth()
-note_storage: BaseNotes = global_config.load_note_storage()
-attachment_storage: BaseAttachments = global_config.load_attachment_storage()
+note_storage = global_config.load_note_storage()
+attachment_storage = global_config.load_attachment_storage()
 publication_store = PublicationStore(note_storage.storage_path)
 encrypted_store = EncryptedNoteStore(note_storage.storage_path)
 encrypted_publications = EncryptedPublicationStore(publication_store)

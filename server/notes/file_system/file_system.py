@@ -21,7 +21,6 @@ from whoosh.support.charset import accent_map
 from flatnotes.helpers import get_env, is_valid_filename
 from flatnotes.logger import logger
 
-from ..base import BaseNotes
 from ..models import Note, NoteCreate, NoteUpdate, SearchResult
 
 MARKDOWN_EXT = ".md"
@@ -40,7 +39,7 @@ class IndexSchema(SchemaClass):
     tags = KEYWORD(lowercase=True, field_boost=2.0)
 
 
-class FileSystemNotes(BaseNotes):
+class FileSystemNotes:
     TAGS_RE = re.compile(r"(?:(?<=^#)|(?<=\s#))[a-zA-Z0-9_-]+(?=\s|$)")
     CODEBLOCK_RE = re.compile(r"`{1,3}.*?`{1,3}", re.DOTALL)
     TAGS_WITH_HASH_RE = re.compile(
