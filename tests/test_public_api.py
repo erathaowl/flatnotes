@@ -172,7 +172,7 @@ class PublicApiTests(unittest.TestCase):
                     content=b"malicious",
                     headers={"X-Revision": created.json()["revision"]},
                 ).status_code,
-                403,
+                405,
             )
             with patch.object(main.global_config, "sharing_enabled", False):
                 self.assertEqual(
@@ -279,6 +279,87 @@ class PublicApiTests(unittest.TestCase):
             )
         self.assertEqual(self.client.get("/api/public/notes/" + slug).status_code, 200)
 
+    def test_public_edit_respects_instance_read_only(self):
+        from flatnotes import main
+
+        title = "ReadOnlyPublicWrite"
+        self.create_note(title, "original content")
+        slug = self.publish(title, permission="edit")["slug"]
+        url = "/api/public/notes/" + slug
+        original = self.client.get(url)
+        self.assertEqual(original.status_code, 200, original.text)
+        self.assertEqual(original.json()["permission"], "edit")
+
+        with patch.object(main.global_config, "auth_type", main.AuthType.READ_ONLY):
+            public = self.client.get(url)
+            self.assertEqual(public.status_code, 200, public.text)
+            self.assertEqual(public.json()["permission"], "read")
+            blocked = self.client.patch(
+                url,
+                json={
+                    "newContent": "unauthorized content",
+                    "revision": original.json()["revision"],
+                },
+            )
+            self.assertEqual(blocked.status_code, 403, blocked.text)
+            unchanged = self.client.get("/api/notes/" + title, headers=self.headers)
+            self.assertEqual(unchanged.json()["content"], "original content")
+
+        allowed = self.client.patch(
+            url,
+            json={"newContent": "authorized public edit", "revision": original.json()["revision"]},
+        )
+        self.assertEqual(allowed.status_code, 200, allowed.text)
+        self.assertEqual(allowed.json()["content"], "authorized public edit")
+
+    def test_encrypted_public_edit_is_not_available(self):
+        from flatnotes import main
+
+        note_id = "aabb" * 8
+        original = b"opaque encrypted envelope"
+        with patch.object(main.global_config, "encryption_enabled", True):
+            created = self.client.put(
+                "/api/encrypted-notes/" + note_id,
+                content=original,
+                headers={**self.headers, "X-Revision": "*"},
+            )
+            self.assertEqual(created.status_code, 200, created.text)
+            denied = self.client.put(
+                "/api/encrypted-notes/" + note_id + "/publication",
+                json={"slugMode": "random", "permission": "edit"},
+                headers=self.headers,
+            )
+            self.assertEqual(denied.status_code, 422, denied.text)
+            self.assertIsNone(self.client.get(
+                "/api/encrypted-notes/" + note_id + "/publication",
+                headers=self.headers,
+            ).json())
+            published = self.client.put(
+                "/api/encrypted-notes/" + note_id + "/publication",
+                json={"slugMode": "random", "permission": "read"},
+                headers=self.headers,
+            )
+            self.assertEqual(published.status_code, 200, published.text)
+            slug = published.json()["slug"]
+            url = "/api/public/encrypted-notes/" + slug
+            public = self.client.get(url)
+            self.assertEqual(public.status_code, 200, public.text)
+            self.assertEqual(public.headers["x-edit-permission"], "read")
+            with patch.object(main.global_config, "auth_type", main.AuthType.READ_ONLY):
+                rejected = self.client.put(
+                    url, content=b"malicious",
+                    headers={"X-Revision": created.json()["revision"]},
+                )
+                self.assertEqual(rejected.status_code, 405, rejected.text)
+                self.assertEqual(self.client.get(url).content, original)
+            updated = self.client.put(
+                "/api/encrypted-notes/" + note_id,
+                content=b"owner update",
+                headers={**self.headers, "X-Revision": created.json()["revision"]},
+            )
+            self.assertEqual(updated.status_code, 200, updated.text)
+            self.assertEqual(self.client.get(url).content, b"owner update")
+
     def test_private_read_does_not_consume_public_single_view(self):
         self.create_note("OneViewPlain", "sensitive text")
         published = self.client.put(
@@ -364,10 +445,11 @@ class PublicApiTests(unittest.TestCase):
                 json={"proof": "00" * 32},
             )
             self.assertEqual(invalid.status_code, 403)
-            consumed = self.client.post(
-                "/api/public/encrypted-notes/" + slug + "/view",
-                json={"proof": proof.hex()},
-            )
+            with patch.object(main.global_config, "auth_type", main.AuthType.READ_ONLY):
+                consumed = self.client.post(
+                    "/api/public/encrypted-notes/" + slug + "/view",
+                    json={"proof": proof.hex()},
+                )
             self.assertEqual(consumed.status_code, 200, consumed.text)
             self.assertEqual(
                 self.client.get("/api/public/encrypted-notes/" + slug).status_code,
