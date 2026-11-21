@@ -49,13 +49,8 @@ try {
   await mobile.addInitScript((accessToken) => {
     sessionStorage.setItem("token", accessToken);
   }, token);
-  await mobilePage.goto("/n/Smoke");
-  await Promise.all([
-    mobilePage.waitForResponse((response) =>
-      response.request().method() === "GET" &&
-      response.url().endsWith("/api/notes/Smoke/publication")),
-    mobilePage.getByRole("button", { name: "Share" }).click(),
-  ]);
+  await mobilePage.goto("/new");
+  await mobilePage.getByRole("button", { name: "Share" }).click();
   const dialog = mobilePage.getByRole("dialog");
   await dialog.locator("#publication-access").selectOption("read");
   await dialog.locator("#publication-slug-mode").selectOption("custom");
