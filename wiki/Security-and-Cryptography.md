@@ -110,8 +110,9 @@ plaintext. This conversion does not guarantee secure erasure.
 A private encrypted note uses `/e/{id}` and regular flatnotes
 authentication. An explicitly published encrypted note uses `/p/{slug}`,
 which delivers ciphertext anonymously; the visitor still needs the
-note password to decrypt it locally. Public-edit permission permits
-uploading new ciphertext after decryption in the visitor's browser.
+note password to decrypt it locally. Public encrypted links are always
+read-only; older edit permissions are converted to read-only at startup.
+Only the owner's private authenticated endpoint can update ciphertext.
 
 Publication metadata is **not** encrypted: the server knows the
 public slug, opaque note ID and read/edit permission. A random slug is
@@ -130,6 +131,16 @@ Automatic note deletion is opt-in within the Share modal, unchecked by default. 
 
 
 ## Security boundaries and limitations
+
+- **Expired public slug reuse (SEC-02):** cleanup deletes expired
+  publication metadata, including the slug reservation. A later publication
+  can reuse the URL. This accepted architectural limitation is documented
+  with the proposed persistent retired-slug registry in
+  [Publishing Notes](Publishing-Notes.md); the current cleanup is unchanged.
+- **Instance read-only mode (SEC-03):** anonymous Markdown public PATCH
+  returns HTTP 403, and public GET reports read-only access. Public encrypted
+  links are read-only in every authentication mode.
+
 
 - Normal `.md` notes and their published versions are plaintext on the
   server. Do not confuse normal account authentication with encryption.
