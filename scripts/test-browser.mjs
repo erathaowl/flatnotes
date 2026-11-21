@@ -7,6 +7,14 @@ const owner = await browser.newContext({ baseURL });
 const anonymous = await browser.newContext({ baseURL });
 const ownerPage = await owner.newPage();
 const publicPage = await anonymous.newPage();
+const mobile = await browser.newContext({
+  baseURL,
+  viewport: { width: 390, height: 600 },
+  deviceScaleFactor: 3,
+  isMobile: true,
+  hasTouch: true,
+});
+const mobilePage = await mobile.newPage();
 
 async function expectStatus(response, expected) {
   assert.equal(response.status(), expected, await response.text());
@@ -36,6 +44,40 @@ try {
   );
   await ownerPage.goto("/n/Smoke");
   await ownerPage.getByText("Browser smoke content").waitFor();
+
+  // A short mobile viewport must keep the Share actions accessible.
+  await mobile.addInitScript((accessToken) => {
+    sessionStorage.setItem("token", accessToken);
+  }, token);
+  await mobilePage.goto("/n/Smoke");
+  await mobilePage.getByRole("button", { name: "Share" }).click();
+  const dialog = mobilePage.getByRole("dialog");
+  await dialog.locator("#publication-access").selectOption("read");
+  await dialog.locator("#publication-slug-mode").selectOption("custom");
+  const layout = await dialog.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return {
+      top: box.top,
+      bottom: box.bottom,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  assert.ok(layout.top >= 0, "Mobile dialog begins inside the viewport");
+  assert.ok(layout.bottom <= layout.viewportHeight, "Mobile dialog ends inside the viewport");
+  assert.ok(layout.scrollHeight > layout.clientHeight, "Long Share dialog scrolls internally");
+  const closeButton = dialog.getByRole("button", { name: "Close" });
+  const closeBox = await closeButton.boundingBox();
+  assert.ok(closeBox && closeBox.y >= 0 && closeBox.y + closeBox.height <= layout.viewportHeight,
+    "Share actions remain visible on short mobile screens");
+  await dialog.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  const scrollPosition = await dialog.evaluate((element) => element.scrollTop);
+  assert.ok(scrollPosition > 0, "Mobile dialog can scroll to its actions");
+  await closeButton.click();
+  assert.equal(await mobilePage.getByRole("dialog").count(), 0);
 
   // Read-only public shares remain visible without exposing editing controls.
   await expectStatus(
@@ -103,5 +145,6 @@ try {
 } finally {
   await owner.close();
   await anonymous.close();
+  await mobile.close();
   await browser.close();
 }
