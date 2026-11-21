@@ -73,28 +73,26 @@ def root(request: Request, title: str = ""):
     html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
     html = replace_base_href(html, global_config.path_prefix)
     html = html.replace("<title>flatnotes</title>", f"<title>{escape(global_config.site_title)}</title>")
-    headers = {}
     is_public = request.url.path.startswith(global_config.path_prefix + "/p/")
     is_encrypted = request.url.path.startswith(global_config.path_prefix + "/e/")
     if is_public:
         slug = request.url.path.rsplit("/", 1)[-1]
         is_encrypted = encrypted_publications.get(slug=slug) is not None
-    if is_public or is_encrypted:
-        image_sources = "img-src 'self' data: blob:; " if is_encrypted else "img-src 'self' data: https:; "
-        headers = {
-            "Content-Security-Policy": (
-                "default-src 'self' data:; "
-                "script-src 'self' 'wasm-unsafe-eval'; "
-                "style-src 'self' 'unsafe-inline'; "
-                + image_sources +
-                "worker-src 'self' blob:; "
-                "connect-src 'self'; object-src 'none'; "
-                "frame-src 'none'; frame-ancestors 'none'; base-uri 'self'"
-            ),
-            "Referrer-Policy": "no-referrer",
-            "Cache-Control": "no-store",
-            "X-Robots-Tag": "noindex",
-        }
+    image_sources = "img-src 'self' data: blob:; " if is_encrypted else "img-src 'self' data: https:; "
+    headers = {
+        "Content-Security-Policy": (
+            "default-src 'self' data:; "
+            "script-src 'self' 'wasm-unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            + image_sources +
+            "worker-src 'self' blob:; "
+            "connect-src 'self'; object-src 'none'; "
+            "frame-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+        ),
+        "Referrer-Policy": "no-referrer",
+        "Cache-Control": "no-store",
+        "X-Robots-Tag": "noindex",
+    }
     return HTMLResponse(content=html, headers=headers)
 
 

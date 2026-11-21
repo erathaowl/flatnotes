@@ -538,6 +538,20 @@ class PublicApiTests(unittest.TestCase):
                 else:
                     self.assertIn("attachment", response.headers["content-disposition"])
 
+    def test_private_html_uses_restrictive_csp(self):
+        for route in ("/", "/search", "/n/Private", "/new", "/encrypted"):
+            with self.subTest(route=route):
+                response = self.client.get(route)
+                self.assertEqual(response.status_code, 200)
+                policy = response.headers["content-security-policy"]
+                self.assertIn("script-src 'self'", policy)
+                self.assertIn("object-src 'none'", policy)
+                self.assertNotIn(
+                    "'unsafe-inline'",
+                    policy.split("script-src ", 1)[1].split(";", 1)[0],
+                )
+                self.assertEqual(response.headers["referrer-policy"], "no-referrer")
+
     def test_private_note_is_not_public(self):
         self.create_note("Private", "Private content")
         self.assertEqual(self.client.get("/api/notes/Private").status_code, 401)

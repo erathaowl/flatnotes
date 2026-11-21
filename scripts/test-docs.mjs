@@ -76,6 +76,9 @@ for (const file of docs) {
   assert.doesNotMatch(read(file), /\/api\/expiring-notes|\/expiring\b/);
 }
 
+const releaseWorkflow = read(".github/workflows/release.yml");
+assert.doesNotMatch(releaseWorkflow, /git push --force|--clobber/);
+
 // Keep workflow triggers and links aligned with the canonical branch.
 const workflows = [
   ".github/workflows/build.yml",

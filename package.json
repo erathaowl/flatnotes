@@ -5,7 +5,7 @@
   "description": "Self-hosted Markdown notes with browser encryption, expiration and sharing.",
   "main": "client/index.html",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node scripts/test-crypto.mjs && node scripts/test-password-policy.mjs && node scripts/test-note-ui.mjs && node scripts/test-docs.mjs",
     "build": "vite build",
     "watch": "vite build --watch",
     "dev": "vite"
