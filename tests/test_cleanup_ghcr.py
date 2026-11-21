@@ -31,6 +31,16 @@ class DevelopmentImageCleanupTests(unittest.TestCase):
                     self.version(tags), self.cutoff
                 ))
 
+    def test_expired_custom_tag_is_selected(self):
+        custom = "test-build"
+        marker = "dev-" + custom + "-" + "b" * 40
+        self.assertTrue(cleanup.is_expired_development_version(
+            self.version([custom, marker]), self.cutoff
+        ))
+        self.assertFalse(cleanup.is_expired_development_version(
+            self.version([custom, marker, "latest"]), self.cutoff
+        ))
+
     def test_recent_branch_version_is_kept(self):
         self.assertFalse(cleanup.is_expired_development_version(
             self.version([self.marker], "2026-11-20T00:00:00Z"),

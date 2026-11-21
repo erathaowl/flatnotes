@@ -70,6 +70,25 @@ has had no fresh build. Cleanup may happen up to approximately one day after
 the seven-day deadline. It never selects versions tagged `master`, `latest`,
 `sha-...`, or a release tag.
 
+### Manually tagged Docker builds
+
+Open **Actions → Build → Run workflow**, select a branch and optionally enter
+`custom_tag` (for example, `test-build`). If omitted, the workflow uses the
+normal `master`/SHA or branch-specific tags. When provided, the custom tag
+**replaces** the default publishing tags for that run:
+
+```text
+ghcr.io/erathaowl/flatnotes:test-build
+```
+
+Custom tags must contain 1-80 lowercase letters, digits, underscores, dots or
+hyphens and start with a letter, digit or underscore. The reserved names
+`master`, `latest`, `sha-*`, `dev-*`, and version tags starting with
+`v` followed by a digit are rejected. Manual custom builds receive an
+internal `dev-test-build-<commit-sha>` marker and are cleaned up under the
+same **seven-day development-image retention policy**, even when manually
+triggered from `master`. Pull requests still build Docker without publishing.
+
 The cleanup uses the package-version REST API and requires the repository's
 `GITHUB_TOKEN` to have **admin access to the GHCR package**. If deletion
 fails with HTTP 403, grant this repository Actions admin access from the
@@ -135,8 +154,10 @@ docker run -d --name flatnotes \
 
 On `master`, successful builds publish `:master` and `:sha-<commit>`.
 On other branches, successful builds publish `:<branch-tag>` and an internal
-`:dev-<branch-tag>-<commit>` marker. Pull requests build the Docker image
-without pushing to GHCR. No Docker build runs until package tests have passed.
+`:dev-<branch-tag>-<commit>` marker. Manual runs may replace these tags with
+an optional `custom_tag`, subject to the same seven-day cleanup. Pull requests
+build the Docker image without pushing to GHCR. No Docker build runs until
+package tests have passed.
 
 Release tags `vX.Y` are normalized to `vX.Y.0` for the published image and release name. The release workflow builds and tests the code, pushes `:vX.Y.Z` and `:latest` to GHCR, and attaches a `.tar.gz` application bundle and installable Python wheel to the GitHub Release. The bundle includes compiled frontend assets, Python backend sources,
 English and Italian READMEs, branding reference files and the complete
