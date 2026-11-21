@@ -34,17 +34,17 @@ Applicazione self-hosted per prendere appunti in Markdown, con ricerca, tag, per
 
 ## Installazione tramite wheel Python
 
-Le release includono anche il file `flatnotes-6.4.0-py3-none-any.whl`,
+Le release includono anche il file `flatnotes-6.5.0-py3-none-any.whl`,
 contenente **backend FastAPI, frontend Vue già compilato e comando `flatnotes`**.
 Sul server è sufficiente **Python 3.13**, senza bisogno di Node.js o Docker.
 
-Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.4.0),
+Scarica il wheel dalla [release](https://github.com/erathaowl/flatnotes/releases/tag/v6.5.0),
 poi esegui:
 
 ```bash
 python3.13 -m venv .venv
 source .venv/bin/activate
-pip install flatnotes-6.4.0-py3-none-any.whl
+pip install flatnotes-6.5.0-py3-none-any.whl
 
 mkdir -p ./data
 export FLATNOTES_PATH="$(pwd)/data"
@@ -72,7 +72,7 @@ Crea un file `compose.yaml`:
 ```yaml
 services:
   flatnotes:
-    image: ghcr.io/erathaowl/flatnotes:v6.4.0
+    image: ghcr.io/erathaowl/flatnotes:v6.5.0
     container_name: flatnotes
     ports:
       - "8080:8080"
@@ -98,7 +98,7 @@ Prepara un file `.env` contenente `FLATNOTES_PASSWORD` e `FLATNOTES_SECRET_KEY`,
 docker compose up -d
 ```
 
-Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.4.0`; `:latest` indica l'ultima release pubblicata, mentre `:master` è destinato ai test dei commit più recenti del branch principale.
+Apri `http://localhost:8080`. Tutte le note e i metadati di pubblicazione sono persistenti nella cartella `./data`. L'esempio utilizza la versione stabile `:v6.5.0`; `:latest` indica l'ultima release pubblicata, mentre `:master` è destinato ai test dei commit più recenti del branch principale.
 
 Maggiori informazioni: [Docker e release](wiki/Docker-and-Releases.md) e [variabili d'ambiente](wiki/Environment-Variables.md).
 
@@ -246,9 +246,23 @@ Salva note ordinarie, file cifrati, allegati e database nei backup. A container 
 
 ## CI/CD e release
 
-I push su `master` attivano compilazione frontend, test Python, creazione di un archivio `.tar.gz` e un wheel `.whl` e pubblicazione delle immagini `:master` e `:sha-<commit>` su GHCR. Le pull request eseguono la validazione senza pubblicare immagini.
+GitHub Actions compila il frontend, esegue i test JavaScript e Python, verifica
+i flussi applicativi con Chromium (incluso il modale Share su schermi mobili) e
+controlla il wheel e l'archivio applicativo. La build Docker parte soltanto
+dopo il successo dei test. Le pull request compilano Docker senza pubblicarlo.
 
-Un tag `vX.Y.Z` (oppure `vX.Y`, normalizzato in `vX.Y.0`) pubblica l'immagine versionata e aggiorna `:latest`, creando una [GitHub Release](https://github.com/erathaowl/flatnotes/releases) con archivio contenente backend e frontend compilato e wheel installabile con pip. L'archivio è un bundle del progetto e non un pacchetto wheel.
+I push su `master` pubblicano `:master` e `:sha-<commit>`. Gli altri branch
+pubblicano immagini temporanee con il nome del branch; un workflow giornaliero
+elimina le versioni di sviluppo più vecchie di sette giorni. Il comando manuale
+**Build** accetta il parametro facoltativo `custom_tag`: lasciandolo vuoto
+restano i tag automatici. Anche i tag personalizzati scadono dopo sette giorni.
+Per permessi e regole di pulizia consulta
+[Docker e release](wiki/Docker-and-Releases.md).
+
+Un tag di versione `vX.Y.Z` (oppure una modifica a
+`.github/release-request.txt` su `master`) pubblica l'immagine versionata,
+aggiorna `:latest` e crea una [GitHub Release](https://github.com/erathaowl/flatnotes/releases)
+con archivio applicativo e wheel. Le release pubblicate sono immutabili.
 
 ## Documentazione e licenza
 
