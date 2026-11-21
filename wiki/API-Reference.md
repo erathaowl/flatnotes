@@ -59,7 +59,9 @@ Publication settings are expressed as:
 ```
 
 Available `slugMode` values are `random`, `title` and `custom`.
-Permissions are `read` and `edit`. Changing the slug revokes the
+Permissions for ordinary Markdown publications are `read` and `edit`. Under
+`FLATNOTES_AUTH_TYPE=read_only`, public GET reports `read` and public PATCH
+returns HTTP 403, even for previously editable links. Changing the slug revokes the
 old URL. Anonymous edits use a returned `revision` value and
 `newContent` in the PATCH payload.
 
@@ -102,10 +104,12 @@ using `PUT /api/encrypted-notes/{id}/publication` if requested.
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | GET | `/api/public/encrypted-notes/{slug}` | Download ciphertext, without login |
-| PUT | `/api/public/encrypted-notes/{slug}` | Update ciphertext only when public editing is enabled |
 
-`GET` includes `X-Edit-Permission` (`read` or `edit`). Like
-authenticated PUT, public PUT supplies `X-Revision` to detect changes.
+`GET` includes `X-Edit-Permission: read`. Anonymous PUT to the same
+endpoint returns HTTP 405. Encrypted publications accept only `permission: read`;
+requests for `edit` return HTTP 422. Legacy editable encrypted publications
+are automatically converted to read-only at startup without changing their URLs.
+The private authenticated PUT route still supports owner edits with `X-Revision`.
 No endpoint requests or accepts the note's encryption password.
 
 Encrypted publications support **random** and **custom** slugs only.
