@@ -317,7 +317,7 @@ def read_public_note(slug: str, response: Response):
         view_token=view_token,
         title=note.title,
         content=note.content or "",
-        permission=publication["permission"],
+        permission="read" if global_config.auth_type == AuthType.READ_ONLY else publication["permission"],
         revision=content_revision(note.content or ""),
     )
 
@@ -326,6 +326,8 @@ def read_public_note(slug: str, response: Response):
 def edit_public_note(slug: str, data: PublicNoteUpdate, response: Response):
     if not global_config.sharing_enabled:
         raise HTTPException(404, "Sharing is disabled")
+    if global_config.auth_type == AuthType.READ_ONLY:
+        raise HTTPException(403, "Read-only mode")
     response.headers["Cache-Control"] = "no-store"
     with publication_store.connection(write=True) as db:
         publication = publication_store.get_by_slug(slug, db)
@@ -540,32 +542,10 @@ def read_public_encrypted_note(slug: str):
             raise HTTPException(410, "Public link expired")
         data = encrypted_store.read(publication["note_id"])
         return encrypted_response(
-            publication["note_id"], data, publication["permission"], publication,
+            publication["note_id"], data, "read", publication,
         )
     except (ValueError, FileNotFoundError):
         raise HTTPException(404, "Published note not found")
-
-
-@router.put("/api/public/encrypted-notes/{slug}")
-async def write_public_encrypted_note(slug: str, request: Request, x_revision: str = Header(None)):
-    if not global_config.sharing_enabled or not global_config.encryption_enabled:
-        raise HTTPException(404, "Sharing or encryption is disabled")
-    data = await request.body()
-    try:
-        with publication_store.connection(write=True) as db:
-            publication = encrypted_publications.get(slug=slug, db=db)
-            if not publication:
-                raise HTTPException(404, "Published note not found")
-            if publication["permission"] != "edit":
-                raise HTTPException(403, "Public editing is disabled")
-            try:
-                ensure_public_active(publication)
-            except ExpirationError:
-                raise HTTPException(410, "Public link expired")
-            revision = encrypted_store.save(publication["note_id"], data, x_revision)
-            return {"revision": revision}
-    except (ValueError, FileNotFoundError, FileExistsError):
-        raise HTTPException(409, "Note revision mismatch")
 
 
 # endregion
