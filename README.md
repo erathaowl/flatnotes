@@ -16,7 +16,7 @@ A lightweight, self-hosted Markdown note-taking application with search, tags, c
 - Responsive Vue interface with Markdown and WYSIWYG editing, light/dark themes, and full-text search.
 - Tags, wiki-style links (`[[Note Title]]`), image attachments, and configurable quick-access notes.
 - Authentication modes: `none`, `read_only`, `password`, and `totp`.
-- **Per-note publication** with anonymous read-only access or optional anonymous editing. Ordinary notes support random, title-derived, or custom URLs; protected notes support random or custom URLs to keep their titles encrypted.
+- **Per-note publication** with read-only links for protected notes and optional anonymous editing for ordinary Markdown notes. Ordinary notes support random, title-derived, or custom URLs; protected notes support random or custom URLs to keep their titles encrypted.
 - Protected notes with Argon2id + AES-256-GCM, unlock in the browser, encrypted attachments and no decryption password sent to FastAPI.
 - Configurable password length and character categories for newly protected notes; permanent deletion by an authenticated user even if the note password is lost.
 - Per-feature environment flags to enable encryption and suspend sharing without erasing publication settings.
@@ -193,7 +193,7 @@ The checkbox **Automatically delete this note when the share expires** is unchec
 
 There is no expiration master switch or default environment variable. New shares use `expiration: none` and `autoDeleteNote: false`. A private note is always accessible to its owner and remains searchable. Private access never consumes a public single-view link.
 
-For encrypted one-view shares, successful browser-only decryption is followed by a distinct HMAC unlock proof; only the first server claim succeeds. Already downloaded ciphertext can still be retained and decrypted offline. Expired links are rejected immediately; the cleanup worker later removes the publication and optionally deletes the original. Editing the note does not restart the timer. Renewing an expired link requires a new URL.
+For encrypted one-view shares, successful browser-only decryption is followed by a distinct HMAC unlock proof; only the first server claim succeeds. Already downloaded ciphertext can still be retained and decrypted offline. Expired links are rejected immediately; the cleanup worker later removes the publication and optionally deletes the original. Editing the note does not restart the timer. Renewing an expired link requires a new URL while its expired publication record exists. After cleanup removes that record, its former slug can be reused; see the known limitation in [Publishing Notes](wiki/Publishing-Notes.md).
 
 **Upgrading from 6.3.0:** active expiration policies on published notes migrate to the corresponding links, retaining deadlines and legacy auto-deletion behavior. Active policies on private notes are removed while preserving the notes. Back up the SQLite publication database before upgrading.
 
@@ -208,7 +208,7 @@ On a new note, Share stages access, expiration and optional auto-delete until th
 
 ## Publish a note
 
-Open an existing note and click **Share**. Notes are private by default; choose **Public: read-only** or **Public: anyone with the link can edit**. Select a URL identifier:
+Open an existing note and click **Share**. Notes are private by default; choose **Public: read-only** or, for ordinary Markdown notes only, **Public: anyone with the link can edit**. Select a URL identifier:
 
 - **Random** (default): a hard-to-guess identifier, such as `/p/82eace7f63bc824b35a44dfb2958cdb0`.
 - **Note title**: a readable slug derived from the current title.
@@ -216,7 +216,7 @@ Open an existing note and click **Share**. Notes are private by default; choose 
 
 Click **Save** to apply the settings and close the Share dialog. You can reopen it to copy the resulting link or unpublish the note. Existing public links stop working after revocation or a URL change. Renaming a note inside flatnotes preserves its existing public URL.
 
-Anonymous users can view only published notes and cannot access the private note list or search when using `password` or `totp`. Public editors can change note **content only**; they cannot rename, delete, upload attachments, or change sharing settings. Concurrent edits use a revision check and may return HTTP 409.
+Anonymous users can view only published notes and cannot access the private note list or search when using `password` or `totp`. Public editors can change note **content only**; they cannot rename, delete, upload attachments, or change sharing settings. Concurrent ordinary-note edits use a revision check and may return HTTP 409. Protected public links are always read-only, including previously created edit links. The owner can still edit via the private encrypted-note endpoint.
 
 **Security:** A public editable link grants editing permission to anyone who knows it. Title-based and custom URLs are predictable. For selective publication, use `FLATNOTES_AUTH_TYPE=password` or `totp`; the `none` and `read_only` modes expose broader note access by design.
 
