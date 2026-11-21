@@ -8,6 +8,8 @@ import re
 import secrets
 import time
 
+from flatnotes.expiration_migration import migrate_legacy
+
 DURATION_PATTERN = re.compile(r"^([1-9][0-9]{0,5})([hd])$")
 VERIFIER_PATTERN = re.compile(r"^[a-f0-9]{64}$")
 MAX_SECONDS = 3650 * 86400
@@ -129,82 +131,7 @@ class ExpirationStore:
                     PRIMARY KEY(note_type, note_id)
                 )"""
             )
-            self._migrate_legacy(db)
-
-    @staticmethod
-    def _migrate_legacy(db):
-        has_legacy = db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='note_expirations'"
-        ).fetchone()
-        if not has_legacy:
-            return
-        old_sessions = db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='note_view_sessions'"
-        ).fetchone()
-        has_purged = any(
-            column["name"] == "purged_at"
-            for column in db.execute("PRAGMA table_info(note_expirations)")
-        )
-        migrated = 0
-        discarded = 0
-        pending = 0
-        rows = db.execute("SELECT * FROM note_expirations").fetchall()
-        for row in rows:
-            kind, note_id = row["note_type"], row["note_id"]
-            table, column = TABLES[kind]
-            published = db.execute(
-                f"SELECT * FROM {table} WHERE {column}=?", (note_id,)
-            ).fetchone()
-            # An active private legacy rule is discarded even if its deadline
-            # passed while the application was stopped. Only terminal rules
-            # already recorded by 6.3 may still trigger pending deletion.
-            terminal = row["status"] != "active"
-            purged_at = row["purged_at"] if has_purged else None
-            if published and purged_at is None:
-                # Legacy note expiry deleted the underlying file; retain that
-                # behavior for migrated published links only.
-                db.execute(
-                    f"""UPDATE {table} SET expiration_policy=?, expires_at=?,
-                        consumed_at=?, auto_delete_note=1, view_verifier=?
-                        WHERE {column}=?""",
-                    (row["policy"], row["expires_at"],
-                     row["consumed_at"] if row["consumed_at"] is not None
-                     else int(time.time()) if terminal else None,
-                     row["view_verifier"], note_id),
-                )
-                if old_sessions and kind == "plain":
-                    for session in db.execute(
-                        "SELECT * FROM note_view_sessions WHERE note_type='plain' AND note_id=?",
-                        (note_id,),
-                    ):
-                        db.execute(
-                            """INSERT OR IGNORE INTO publication_view_sessions
-                               (token_hash, slug, expires_at) VALUES (?, ?, ?)""",
-                            (session["token_hash"], published["slug"], session["expires_at"]),
-                        )
-                migrated += 1
-            elif terminal and purged_at is None:
-                delay = 0
-                if old_sessions:
-                    session = db.execute(
-                        """SELECT MAX(expires_at) AS deadline FROM note_view_sessions
-                           WHERE note_type=? AND note_id=?""", (kind, note_id),
-                    ).fetchone()
-                    delay = session["deadline"] or 0
-                db.execute(
-                    """INSERT OR IGNORE INTO legacy_pending_deletions
-                       (note_type, note_id, delete_after) VALUES (?, ?, ?)""",
-                    (kind, note_id, delay),
-                )
-                pending += 1
-            else:
-                discarded += 1
-        db.execute("DROP TABLE IF EXISTS note_view_sessions")
-        db.execute("DROP TABLE note_expirations")
-        logger.info(
-            "Expiration migration: %d published rules, %d discarded private rules, "
-            "%d previously terminal notes pending cleanup", migrated, discarded, pending,
-        )
+            migrate_legacy(db, TABLES)
 
     def consume(self, publication, proof=None, db=None, allow_session=False):
         if db is None:
@@ -274,10 +201,26 @@ class ExpirationStore:
                 except OSError:
                     pass
 
+    def _delete_expired_note(self, kind, note_id, ordinary, encrypted):
+        """Delete the original note and any unreferenced plain attachments."""
+        if kind == "plain":
+            from flatnotes.publications import referenced_attachments
+
+            try:
+                names = referenced_attachments(ordinary.get(note_id).content or "")
+                ordinary.delete(note_id)
+            except FileNotFoundError:
+                names = set()
+            self.delete_orphaned_attachments(ordinary, names)
+            return True
+        try:
+            encrypted.delete(note_id)
+        except FileNotFoundError:
+            pass
+        return False
+
     def cleanup(self, ordinary, encrypted):
         """Revoke expired shares; remove the note only with explicit opt-in."""
-        from flatnotes.publications import referenced_attachments
-
         reindex = False
         now = int(time.time())
         with self.store.connection(write=True) as db:
@@ -297,19 +240,9 @@ class ExpirationStore:
                     note_id = pub[column]
                     if pub["auto_delete_note"]:
                         try:
-                            if kind == "plain":
-                                try:
-                                    names = referenced_attachments(ordinary.get(note_id).content or "")
-                                    ordinary.delete(note_id)
-                                except FileNotFoundError:
-                                    names = set()
-                                self.delete_orphaned_attachments(ordinary, names)
-                                reindex = True
-                            else:
-                                try:
-                                    encrypted.delete(note_id)
-                                except FileNotFoundError:
-                                    pass
+                            reindex = self._delete_expired_note(
+                                kind, note_id, ordinary, encrypted
+                            ) or reindex
                         except (OSError, ValueError):
                             logger.exception("Expiration cleanup will retry %s %s", kind, note_id)
                             continue
@@ -319,19 +252,9 @@ class ExpirationStore:
             ).fetchall():
                 kind, note_id = legacy["note_type"], legacy["note_id"]
                 try:
-                    if kind == "plain":
-                        try:
-                            names = referenced_attachments(ordinary.get(note_id).content or "")
-                            ordinary.delete(note_id)
-                        except FileNotFoundError:
-                            names = set()
-                        self.delete_orphaned_attachments(ordinary, names)
-                        reindex = True
-                    else:
-                        try:
-                            encrypted.delete(note_id)
-                        except FileNotFoundError:
-                            pass
+                    reindex = self._delete_expired_note(
+                        kind, note_id, ordinary, encrypted
+                    ) or reindex
                     db.execute(
                         "DELETE FROM legacy_pending_deletions WHERE note_type=? AND note_id=?",
                         (kind, note_id),
