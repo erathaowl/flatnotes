@@ -204,7 +204,7 @@ Il suffisso dell'URL può essere:
 
 Il pulsante **Save** memorizza la configurazione e chiude la finestra. Riaprendo **Share** puoi copiare il link o revocare la pubblicazione. Un link precedente non funziona più dopo la revoca o la modifica dell'URL. La rinomina di una nota dall'app mantiene il link pubblico corrente.
 
-Gli utenti anonimi, quando l'istanza usa `password` o `totp`, possono consultare soltanto le note pubblicate. Per le note modificabili possono intervenire **sul contenuto**, senza rinominare, cancellare, caricare allegati o alterare le impostazioni di condivisione. Le modifiche concorrenti vengono controllate tramite revisione (HTTP 409 in caso di conflitto).
+Gli utenti anonimi, quando l'istanza usa `password` o `totp`, possono consultare soltanto le note pubblicate. Per le note Markdown modificabili possono intervenire **sul contenuto**, senza rinominare, cancellare, caricare allegati o alterare le impostazioni di condivisione. Le condivisioni di note cifrate sono sempre in sola lettura, anche se create in precedenza con permesso di modifica. Le modifiche concorrenti alle note Markdown vengono controllate tramite revisione (HTTP 409 in caso di conflitto). In modalità `read_only` anche le API pubbliche di modifica sono bloccate.
 
 **Sicurezza:** chiunque conosca un link modificabile può cambiare il contenuto. Un URL basato sul titolo o personalizzato può essere indovinato. Per rendere private le note non pubblicate, scegli `password` o `totp`: con `none` e `read_only` l'accesso anonimo è già esteso per definizione.
 
