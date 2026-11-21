@@ -210,11 +210,8 @@ export async function fetchEncryptedNote(noteId, slug = null) {
   };
 }
 
-export async function saveEncryptedNote(noteId, ciphertext, revision, slug = null) {
-  const path = slug
-    ? "api/public/encrypted-notes/" + encodeURIComponent(slug)
-    : "api/encrypted-notes/" + encodeURIComponent(noteId);
-  const response = await api.put(path, ciphertext, {
+export async function saveEncryptedNote(noteId, ciphertext, revision) {
+  const response = await api.put("api/encrypted-notes/" + encodeURIComponent(noteId), ciphertext, {
     headers: {
       "Content-Type": "application/octet-stream",
       "X-Revision": revision,
