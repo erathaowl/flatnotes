@@ -75,9 +75,11 @@ class EncryptedPublicationStore:
                     note_id TEXT PRIMARY KEY,
                     slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
                     slug_mode TEXT NOT NULL CHECK(slug_mode IN ('random','title','custom')),
-                    permission TEXT NOT NULL CHECK(permission IN ('read','edit'))
+                    permission TEXT NOT NULL CHECK(permission = 'read')
                 )"""
             )
+            # Downgrade existing public edit links without changing their URLs.
+            db.execute("UPDATE encrypted_publications SET permission='read' WHERE permission='edit'")
 
     def get(self, note_id=None, slug=None, db=None):
         if db is None:
@@ -95,6 +97,8 @@ class EncryptedPublicationStore:
 
     def save(self, note_id, mode, permission, requested_slug,
              expiration="none", auto_delete_note=False, view_verifier=None):
+        if permission != "read":
+            raise ValueError("Encrypted public links are read-only")
         with self.store.connection(write=True) as db:
             current = self.get(note_id=note_id, db=db)
             expired = is_expired(current)
